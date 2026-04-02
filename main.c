@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sqlite3.h>
 
 #define DEFAULT_DB "vault.db"
@@ -10,8 +11,37 @@ static void usage(const char *program) {
 			"  %s init [db_path]\n"
 			"  %s add <site> [db_path]\n"
 			"  %s get <site> [db_path]\n"
+            "  %s delete <site> [db_path]\n"
 			"  %s list [db_path]\n",
-			program, program, program, program);
+			program, program, program, program, program);
+}
+
+static int db_must_exist(const char *db_path) {
+	struct stat st;
+	if (stat(db_path, &st) != 0) {
+		fprintf(stderr, "Vault not found. Please run first: init [db_path]\n");
+		return 0;
+	}
+	return 1;
+}
+
+static int table_exists(sqlite3 *db, const char *table_name) {
+	sqlite3_stmt *stmt;
+	const char *sql =
+		"SELECT 1 FROM sqlite_master WHERE type='table' AND name = ? LIMIT 1;";
+	int exists = 0;
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		return 0;
+	}
+
+	sqlite3_bind_text(stmt, 1, table_name, -1, SQLITE_TRANSIENT);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		exists = 1;
+	}
+
+	sqlite3_finalize(stmt);
+	return exists;
 }
 
 static int cmd_init(const char *db_path) {
@@ -49,6 +79,8 @@ static int cmd_add(const char *db_path, const char *site) {
 	char password[256];
 	const char *sql =
 		"INSERT INTO entries (site, username, password) VALUES (?, ?, ?);";
+
+	if (!db_must_exist(db_path)) return 1;
 
 	printf("Username: ");
 	if (fgets(username, sizeof(username), stdin) == NULL) return 1;
@@ -126,11 +158,19 @@ static int cmd_delete(const char *db_path, const char *site) {
     const char *sql =
         "DELETE FROM entries WHERE site = ?;";
 
+	if (!db_must_exist(db_path)) return 1;
+
     if (sqlite3_open(db_path, &db) != SQLITE_OK) {
         fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
         return 1;
     }
+
+	if (!table_exists(db, "entries")) {
+		fprintf(stderr, "Table 'entries' not found. Run init first.\n");
+		sqlite3_close(db);
+		return 1;
+	}
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
         fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
@@ -140,11 +180,20 @@ static int cmd_delete(const char *db_path, const char *site) {
 
     sqlite3_bind_text(stmt, 1, site, -1, SQLITE_TRANSIENT);
 
-    if (sqlite3_step(stmt) == SQLITE_DONE) {
-        printf("Deleted entry: %s\n", site);
-    } else {
-        fprintf(stderr, "Failed to delete: %s\n", sqlite3_errmsg(db));
-    }
+	if (sqlite3_step(stmt) == SQLITE_DONE) {
+		if (sqlite3_changes(db) == 0) {
+			fprintf(stderr, "No entry found to delete: %s\n", site);
+			sqlite3_finalize(stmt);
+			sqlite3_close(db);
+			return 1;
+		}
+		printf("Deleted entry: %s\n", site);
+	} else {
+		fprintf(stderr, "Failed to delete: %s\n", sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return 1;
+	}
 
     sqlite3_finalize(stmt);
     sqlite3_close(db);
