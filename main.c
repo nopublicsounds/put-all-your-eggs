@@ -2,12 +2,13 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sqlite3.h>
+#include "chalk.h"
 
 #define DEFAULT_DB "vault.db"
 
 static void usage(const char *program) {
 	fprintf(stderr,
-			"Usage:\n"
+			CHALK_YELLOW("Usage:\n")
 			"  %s init [db_path]\n"
 			"  %s add <site> [db_path]\n"
 			"  %s get <site> [db_path]\n"
@@ -19,7 +20,7 @@ static void usage(const char *program) {
 static int db_must_exist(const char *db_path) {
 	struct stat st;
 	if (stat(db_path, &st) != 0) {
-		fprintf(stderr, "Vault not found. Please run first: init [db_path]\n");
+		fprintf(stderr, CHALK_YELLOW("Vault not found. Please run first: init [db_path]\n"));
 		return 0;
 	}
 	return 1;
@@ -55,19 +56,19 @@ static int cmd_init(const char *db_path) {
 		");";
 
 	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
-		fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
 
 	if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
-		fprintf(stderr, "Failed to create table: %s\n", errmsg);
+		fprintf(stderr, CHALK_RED("Failed to create table: %s\n"), errmsg);
 		sqlite3_free(errmsg);
 		sqlite3_close(db);
 		return 1;
 	}
 
-	printf("Vault initialized: %s\n", db_path);
+	printf(CHALK_GREEN("Vault initialized: %s\n"), db_path);
 	sqlite3_close(db);
 	return 0;
 }
@@ -91,13 +92,13 @@ static int cmd_add(const char *db_path, const char *site) {
 	password[strcspn(password, "\n")] = '\0';
 
 	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
-		fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
@@ -107,13 +108,13 @@ static int cmd_add(const char *db_path, const char *site) {
 	sqlite3_bind_text(stmt, 3, password, -1, SQLITE_TRANSIENT);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
-		fprintf(stderr, "Failed to save: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to save: %s\n"), sqlite3_errmsg(db));
 		sqlite3_finalize(stmt);
 		sqlite3_close(db);
 		return 1;
 	}
 
-	printf("Saved: %s\n", site);
+	printf(CHALK_GREEN("Saved: %s\n"), site);
 	sqlite3_finalize(stmt);
 	sqlite3_close(db);
 	return 0;
@@ -126,13 +127,13 @@ static int cmd_get(const char *db_path, const char *site) {
 		"SELECT username, password FROM entries WHERE site = ?;";
 
 	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
-		fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
@@ -140,11 +141,14 @@ static int cmd_get(const char *db_path, const char *site) {
 	sqlite3_bind_text(stmt, 1, site, -1, SQLITE_TRANSIENT);
 
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
-		printf("Site    : %s\n", site);
-		printf("Username: %s\n", sqlite3_column_text(stmt, 0));
-		printf("Password: %s\n", sqlite3_column_text(stmt, 1));
+		printf("Site     : %s\n", site);
+		printf("Username : %s\n", sqlite3_column_text(stmt, 0));
+		printf("Password : %s\n", sqlite3_column_text(stmt, 1));
 	} else {
-		printf("No entry found: %s\n", site);
+		fprintf(stderr, CHALK_YELLOW("No entry found: %s\n"), site);
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return 1;
 	}
 
 	sqlite3_finalize(stmt);
@@ -161,19 +165,19 @@ static int cmd_delete(const char *db_path, const char *site) {
 	if (!db_must_exist(db_path)) return 1;
 
     if (sqlite3_open(db_path, &db) != SQLITE_OK) {
-        fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
         sqlite3_close(db);
         return 1;
     }
 
 	if (!table_exists(db, "entries")) {
-		fprintf(stderr, "Table 'entries' not found. Run init first.\n");
+		fprintf(stderr, CHALK_YELLOW("Table 'entries' not found. Run init first.\n"));
 		sqlite3_close(db);
 		return 1;
 	}
 
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-        fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
         sqlite3_close(db);
         return 1;
     }
@@ -182,14 +186,14 @@ static int cmd_delete(const char *db_path, const char *site) {
 
 	if (sqlite3_step(stmt) == SQLITE_DONE) {
 		if (sqlite3_changes(db) == 0) {
-			fprintf(stderr, "No entry found to delete: %s\n", site);
+			fprintf(stderr, CHALK_YELLOW("No entry found to delete: %s\n"), site);
 			sqlite3_finalize(stmt);
 			sqlite3_close(db);
 			return 1;
 		}
-		printf("Deleted entry: %s\n", site);
+		printf(CHALK_GREEN("Deleted entry: %s\n"), site);
 	} else {
-		fprintf(stderr, "Failed to delete: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to delete: %s\n"), sqlite3_errmsg(db));
 		sqlite3_finalize(stmt);
 		sqlite3_close(db);
 		return 1;
@@ -207,13 +211,13 @@ static int cmd_list(const char *db_path) {
 	int count = 0;
 
 	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
-		fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
 	}
@@ -224,7 +228,7 @@ static int cmd_list(const char *db_path) {
 	}
 
 	if (count == 0)
-		printf("(Empty)\n");
+		printf(CHALK_YELLOW("(Empty)\n"));
 
 	sqlite3_finalize(stmt);
 	sqlite3_close(db);
