@@ -120,6 +120,37 @@ static int cmd_get(const char *db_path, const char *site) {
 	return 0;
 }
 
+static int cmd_delete(const char *db_path, const char *site) {
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+    const char *sql =
+        "DELETE FROM entries WHERE site = ?;";
+
+    if (sqlite3_open(db_path, &db) != SQLITE_OK) {
+        fprintf(stderr, "Failed to open DB: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        return 1;
+    }
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "Failed to prepare SQL: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        return 1;
+    }
+
+    sqlite3_bind_text(stmt, 1, site, -1, SQLITE_TRANSIENT);
+
+    if (sqlite3_step(stmt) == SQLITE_DONE) {
+        printf("Deleted entry: %s\n", site);
+    } else {
+        fprintf(stderr, "Failed to delete: %s\n", sqlite3_errmsg(db));
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+    return 0;
+}
+
 static int cmd_list(const char *db_path) {
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
@@ -183,6 +214,15 @@ int main(int argc, char **argv) {
 		const char *db_path = (argc == 4) ? argv[3] : DEFAULT_DB;
 		return cmd_get(db_path, argv[2]);
 	}
+
+    if (strcmp(command, "delete") == 0) {
+        if (argc < 3 || argc > 4) {
+            usage(argv[0]);
+            return 1;
+        }
+        const char *db_path = (argc == 4) ? argv[3] : DEFAULT_DB;
+        return cmd_delete(db_path, argv[2]);
+    }
 
 	if (strcmp(command, "list") == 0) {
 		const char *db_path = (argc >= 3) ? argv[2] : DEFAULT_DB;
