@@ -4,6 +4,7 @@ LIBS    = -lsqlite3
 TARGET  = pwmgr
 SRCDIR  = src
 OBJDIR  = build
+BINDIR  ?= $(HOME)/.local/bin
 SRCS    = $(wildcard $(SRCDIR)/*.c)
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 
@@ -21,4 +22,11 @@ $(OBJDIR):
 clean:
 	rm -rf $(OBJDIR) $(TARGET)
 
-.PHONY: all clean
+install: $(TARGET)
+	mkdir -p $(BINDIR)
+	cp $(TARGET) $(BINDIR)/$(TARGET)
+
+uninstall:
+	rm -f $(BINDIR)/$(TARGET)
+
+.PHONY: all clean install uninstall
