@@ -368,6 +368,50 @@ static int cmd_list(const char *db_path) {
 	return 0;
 }
 
+static int authenticate_master(const char *db_path) {
+	sqlite3 *db;
+	sqlite3_stmt *stmt;
+	char input[INPUT_SIZE];
+	const char *sql = "SELECT password FROM master_auth WHERE id = 1;";
+	int authenticated = 0;
+
+	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 0;
+	}
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 0;
+	}
+
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		const char *stored_password = (const char *)sqlite3_column_text(stmt, 0);
+
+		printf("Enter master password: ");
+		if (fgets(input, sizeof(input), stdin) == NULL) {
+			sqlite3_finalize(stmt);
+			sqlite3_close(db);
+			return 0;
+		}
+		input[strcspn(input, "\n")] = '\0';
+
+		if (strcmp(input, stored_password) == 0) {
+			authenticated = 1;
+		} else {
+			fprintf(stderr, CHALK_RED("Authentication failed.\n"));
+		}
+	} else {
+		fprintf(stderr, CHALK_YELLOW("No master password set. Run init first.\n"));
+	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(db);
+	return authenticated;
+}
+
 int main(int argc, char **argv) {
 	const char *command;
 
@@ -398,6 +442,9 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		const char *db_path = (argc == 4) ? argv[3] : DEFAULT_DB;
+		if (!authenticate_master(db_path)) {
+			return 1;
+		}
 		return cmd_get(db_path, argv[2]);
 	}
 
@@ -407,6 +454,9 @@ int main(int argc, char **argv) {
             return 1;
         }
         const char *db_path = (argc == 4) ? argv[3] : DEFAULT_DB;
+		if (!authenticate_master(db_path)) {
+			return 1;
+		}
         return cmd_delete(db_path, argv[2]);
     }
 
