@@ -9,7 +9,7 @@
 
 static void usage(const char *program) {
 	fprintf(stderr,
-			CHALK_BOLD("Password Vault CLI\n")
+			CHALK_BOLD("Password Basket CLI\n")
 			"Usage:\n"
 			"  %s init " CHALK_DIM("[db_path]") "        	Initialize vault and set master password\n"
 			"  %s add <site> " CHALK_DIM("[db_path]") "  	Add credentials for a site\n"
