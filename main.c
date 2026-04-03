@@ -5,6 +5,7 @@
 #include "chalk.h"
 
 #define DEFAULT_DB "vault.db"
+#define INPUT_SIZE 256
 
 static void usage(const char *program) {
 	fprintf(stderr,
@@ -45,6 +46,98 @@ static int table_exists(sqlite3 *db, const char *table_name) {
 	return exists;
 }
 
+static int read_input(const char *prompt, char *buffer, size_t size) {
+	printf("%s", prompt);
+	fflush(stdout);
+
+	if (fgets(buffer, size, stdin) == NULL) {
+		return 0;
+	}
+
+	buffer[strcspn(buffer, "\n")] = '\0';
+	return buffer[0] != '\0';
+}
+
+static int ensure_master_table(sqlite3 *db) {
+	char *errmsg = NULL;
+	const char *sql =
+		"CREATE TABLE IF NOT EXISTS master_auth ("
+		"  id INTEGER PRIMARY KEY CHECK (id = 1),"
+		"  password TEXT NOT NULL"
+		");";
+
+	if (sqlite3_exec(db, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to create master auth table: %s\n"), errmsg);
+		sqlite3_free(errmsg);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int master_password_exists(sqlite3 *db) {
+	sqlite3_stmt *stmt;
+	const char *sql = "SELECT COUNT(*) FROM master_auth WHERE id = 1;";
+	int count = 0;
+
+	if (!table_exists(db, "master_auth")) {
+		return 0;
+	}
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		return 0;
+	}
+
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		count = sqlite3_column_int(stmt, 0);
+	}
+
+	sqlite3_finalize(stmt);
+	return count > 0;
+}
+
+static int setup_master_password(sqlite3 *db) {
+	sqlite3_stmt *stmt;
+	char password[INPUT_SIZE];
+	char confirm[INPUT_SIZE];
+	const char *sql =
+		"INSERT OR REPLACE INTO master_auth (id, password) VALUES (1, ?);";
+
+	printf(CHALK_CYAN("Set a master password for this vault.\n"));
+
+	if (!read_input("Master password: ", password, sizeof(password))) {
+		fprintf(stderr, CHALK_RED("Master password is required.\n"));
+		return 0;
+	}
+
+	if (!read_input("Confirm password: ", confirm, sizeof(confirm))) {
+		fprintf(stderr, CHALK_RED("Password confirmation is required.\n"));
+		return 0;
+	}
+
+	if (strcmp(password, confirm) != 0) {
+		fprintf(stderr, CHALK_RED("Passwords do not match.\n"));
+		return 0;
+	}
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
+		return 0;
+	}
+
+	sqlite3_bind_text(stmt, 1, password, -1, SQLITE_TRANSIENT);
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		fprintf(stderr, CHALK_RED("Failed to save master password: %s\n"), sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		return 0;
+	}
+
+	sqlite3_finalize(stmt);
+	printf(CHALK_GREEN("Master password set successfully.\n"));
+	return 1;
+}
+
 static int cmd_init(const char *db_path) {
 	sqlite3 *db;
 	char *errmsg = NULL;
@@ -66,6 +159,20 @@ static int cmd_init(const char *db_path) {
 		sqlite3_free(errmsg);
 		sqlite3_close(db);
 		return 1;
+	}
+
+	if (!ensure_master_table(db)) {
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!master_password_exists(db)) {
+		if (!setup_master_password(db)) {
+			sqlite3_close(db);
+			return 1;
+		}
+	} else {
+		printf(CHALK_YELLOW("Master password is already configured.\n"));
 	}
 
 	printf(CHALK_GREEN("Vault initialized: %s\n"), db_path);
