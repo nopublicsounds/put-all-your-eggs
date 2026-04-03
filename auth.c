@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
 #include <sqlite3.h>
 #include "chalk.h"
 #include "db.h"
@@ -19,6 +21,28 @@ int read_input(const char *prompt, char *buffer, size_t size) {
 	return buffer[0] != '\0';
 }
 
+int read_secret(const char *prompt, char *buffer, size_t size) {
+	struct termios old, new;
+	int ok;
+
+	printf("%s", prompt);
+	fflush(stdout);
+
+	tcgetattr(STDIN_FILENO, &old);
+	new = old;
+	new.c_lflag &= ~ECHO;
+	tcsetattr(STDIN_FILENO, TCSANOW, &new);
+
+	ok = (fgets(buffer, size, stdin) != NULL);
+
+	tcsetattr(STDIN_FILENO, TCSANOW, &old);
+	printf("\n");
+
+	if (!ok) return 0;
+	buffer[strcspn(buffer, "\n")] = '\0';
+	return buffer[0] != '\0';
+}
+
 int setup_master_password(sqlite3 *db) {
 	sqlite3_stmt *stmt;
 	char password[INPUT_SIZE];
@@ -28,12 +52,12 @@ int setup_master_password(sqlite3 *db) {
 
 	printf(CHALK_CYAN("Set a master password for this vault.\n"));
 
-	if (!read_input("Master password: ", password, sizeof(password))) {
+	if (!read_secret("Master password: ", password, sizeof(password))) {
 		fprintf(stderr, CHALK_RED("Master password is required.\n"));
 		return 0;
 	}
 
-	if (!read_input("Confirm password: ", confirm, sizeof(confirm))) {
+	if (!read_secret("Confirm password: ", confirm, sizeof(confirm))) {
 		fprintf(stderr, CHALK_RED("Password confirmation is required.\n"));
 		return 0;
 	}
@@ -83,13 +107,11 @@ int authenticate_master(const char *db_path) {
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
 		const char *stored_password = (const char *)sqlite3_column_text(stmt, 0);
 
-		printf("Enter master password: ");
-		if (fgets(input, sizeof(input), stdin) == NULL) {
+		if (!read_secret("Enter master password: ", input, sizeof(input))) {
 			sqlite3_finalize(stmt);
 			sqlite3_close(db);
 			return 0;
 		}
-		input[strcspn(input, "\n")] = '\0';
 
 		if (strcmp(input, stored_password) == 0) {
 			authenticated = 1;
