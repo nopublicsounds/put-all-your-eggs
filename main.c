@@ -8,12 +8,12 @@
 
 static void usage(const char *program) {
 	fprintf(stderr,
-			CHALK_YELLOW("Usage:\n")
-			"  %s init [db_path]\n"
-			"  %s add <site> [db_path]\n"
-			"  %s get <site> [db_path]\n"
-            "  %s delete <site> [db_path]\n"
-			"  %s list [db_path]\n",
+			"Usage:\n"
+			"%s init [db_path]\n"
+			"%s add <site> [db_path]\n"
+			"%s get <site> [db_path]\n"
+            "%s delete <site> [db_path]\n"
+			"%s list [db_path]\n",
 			program, program, program, program, program);
 }
 
@@ -159,6 +159,7 @@ static int cmd_get(const char *db_path, const char *site) {
 static int cmd_delete(const char *db_path, const char *site) {
     sqlite3 *db;
     sqlite3_stmt *stmt;
+    char response[16];
     const char *sql =
         "DELETE FROM entries WHERE site = ?;";
 
@@ -176,6 +177,17 @@ static int cmd_delete(const char *db_path, const char *site) {
 		return 1;
 	}
 
+	printf("Are you sure you want to delete the entry for '%s'? (y/N): ", site);
+	if (fgets(response, sizeof(response), stdin) == NULL) {
+		sqlite3_close(db);
+		return 1;
+	}
+	if (response[0] != 'y' && response[0] != 'Y') {
+		printf(CHALK_YELLOW("Deletion cancelled.\n"));
+		sqlite3_close(db);
+		return 0;
+	}
+
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
 		fprintf(stderr, CHALK_RED("Failed to prepare SQL: %s\n"), sqlite3_errmsg(db));
         sqlite3_close(db);
@@ -191,6 +203,7 @@ static int cmd_delete(const char *db_path, const char *site) {
 			sqlite3_close(db);
 			return 1;
 		}
+
 		printf(CHALK_GREEN("Deleted entry: %s\n"), site);
 	} else {
 		fprintf(stderr, CHALK_RED("Failed to delete: %s\n"), sqlite3_errmsg(db));
