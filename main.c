@@ -9,11 +9,11 @@
 static void usage(const char *program) {
 	fprintf(stderr,
 			"Usage:\n"
-			"%s init [db_path]\n"
-			"%s add <site> [db_path]\n"
-			"%s get <site> [db_path]\n"
-            "%s delete <site> [db_path]\n"
-			"%s list [db_path]\n",
+			"%s init " CHALK_DIM("[db_path]\n")
+			"%s add <site> " CHALK_DIM("[db_path]\n")
+			"%s get <site> " CHALK_DIM("[db_path]\n")
+            "%s delete <site> " CHALK_DIM("[db_path]\n")
+			"%s list " CHALK_DIM("[db_path]\n"),
 			program, program, program, program, program);
 }
 
