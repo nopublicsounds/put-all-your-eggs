@@ -16,4 +16,13 @@ pwmgr init
 | `pwmgr get <site> [db_path]` | Show saved credentials for a site (requires master password). |
 | `pwmgr delete <site> [db_path]` | Delete a site entry with confirmation (requires master password). |
 | `pwmgr list [db_path]` | List all saved site names. |
+| `pwmgr generate <length>` | Generate a random password with uppercase, lowercase, digits, and special characters. |
+
+## Password Generator
+```bash
+pwmgr generate 20
+```
+
+- Length must be at least 4 so every character group can be included.
+- Generated passwords always include uppercase letters, lowercase letters, digits, and special characters.
 
