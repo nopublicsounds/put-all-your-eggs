@@ -1,5 +1,8 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sqlite3.h>
 #include "chalk.h"
 #include "db.h"
@@ -7,6 +10,114 @@
 #include "commands.h"
 
 #define INPUT_SIZE 256
+#define MIN_PASSWORD_LENGTH 4
+
+static const char LOWER_CHARS[] = "abcdefghijklmnopqrstuvwxyz";
+static const char UPPER_CHARS[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const char DIGIT_CHARS[] = "0123456789";
+static const char SPECIAL_CHARS[] = "!@#$%^&*()-_=+[]{};:,.?/";
+static const char ALL_PASSWORD_CHARS[] =
+	"abcdefghijklmnopqrstuvwxyz"
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	"0123456789"
+	"!@#$%^&*()-_=+[]{};:,.?/";
+
+static int fill_random_bytes(unsigned char *buffer, size_t size) {
+	FILE *random_file = fopen("/dev/urandom", "rb");
+	int ok;
+
+	if (random_file == NULL) {
+		return 0;
+	}
+
+	ok = fread(buffer, 1, size, random_file) == size;
+	fclose(random_file);
+	return ok;
+}
+
+static int random_index(size_t limit, size_t *out_index) {
+	unsigned int value;
+	unsigned int threshold;
+
+	if (limit == 0) {
+		return 0;
+	}
+
+	threshold = (unsigned int)(0xFFFFFFFFu - (0xFFFFFFFFu % limit));
+	do {
+		if (!fill_random_bytes((unsigned char *)&value, sizeof(value))) {
+			return 0;
+		}
+	} while (value >= threshold);
+
+	*out_index = (size_t)(value % limit);
+	return 1;
+}
+
+static int prompt_yes_no(const char *prompt) {
+	char response[16];
+
+	printf("%s", prompt);
+	fflush(stdout);
+
+	if (!isatty(STDIN_FILENO)) {
+		return 0;
+	}
+
+	if (fgets(response, sizeof(response), stdin) == NULL) {
+		return 0;
+	}
+
+	return response[0] == 'y' || response[0] == 'Y';
+}
+
+static void shuffle_password(char *password, int length) {
+	int index;
+
+	for (index = length - 1; index > 0; index--) {
+		size_t swap_index;
+		if (!random_index((size_t)index + 1, &swap_index)) {
+			continue;
+		}
+		char temp = password[index];
+		password[index] = password[swap_index];
+		password[swap_index] = temp;
+	}
+}
+
+static int fill_password_group(char *password, int start, int count, const char *charset) {
+	int index;
+	size_t charset_length = strlen(charset);
+
+	if (charset_length == 0) {
+		return 0;
+	}
+
+	for (index = 0; index < count; index++) {
+		size_t picked_index;
+		if (!random_index(charset_length, &picked_index)) {
+			return 0;
+		}
+		password[start + index] = charset[picked_index];
+	}
+
+	return 1;
+}
+
+static int generate_password(char *password, int length) {
+	if (length < MIN_PASSWORD_LENGTH) {
+		return 0;
+	}
+
+	password[length] = '\0';
+	if (!fill_password_group(password, 0, 1, LOWER_CHARS)) return 0;
+	if (!fill_password_group(password, 1, 1, UPPER_CHARS)) return 0;
+	if (!fill_password_group(password, 2, 1, DIGIT_CHARS)) return 0;
+	if (!fill_password_group(password, 3, 1, SPECIAL_CHARS)) return 0;
+	if (!fill_password_group(password, 4, length - 4, ALL_PASSWORD_CHARS)) return 0;
+	shuffle_password(password, length);
+	return 1;
+}
 
 static int entry_exists(sqlite3 *db, const char *site) {
 	sqlite3_stmt *stmt;
@@ -27,14 +138,10 @@ static int entry_exists(sqlite3 *db, const char *site) {
 }
 
 static int confirm_overwrite(const char *site) {
-	char response[16];
+	char prompt[INPUT_SIZE];
 
-	printf("An entry for '%s' already exists. Overwrite it? (y/N): ", site);
-	if (fgets(response, sizeof(response), stdin) == NULL) {
-		return 0;
-	}
-
-	return response[0] == 'y' || response[0] == 'Y';
+	snprintf(prompt, sizeof(prompt), "An entry for '%s' already exists. Overwrite it? (y/N): ", site);
+	return prompt_yes_no(prompt);
 }
 
 int cmd_init(const char *db_path) {
@@ -264,5 +371,31 @@ int cmd_list(const char *db_path) {
 
 	sqlite3_finalize(stmt);
 	sqlite3_close(db);
+	return 0;
+}
+
+int cmd_generate(int length) {
+	char *password;
+
+	if (length < MIN_PASSWORD_LENGTH) {
+		fprintf(stderr, CHALK_RED("Length must be at least %d to include all character groups.\n"), MIN_PASSWORD_LENGTH);
+		return 1;
+	}
+
+	password = malloc((size_t)length + 1);
+	if (password == NULL) {
+		fprintf(stderr, CHALK_RED("Failed to allocate password buffer.\n"));
+		return 1;
+	}
+
+	if (!generate_password(password, length)) {
+		fprintf(stderr, CHALK_RED("Failed to generate password.\n"));
+		free(password);
+		return 1;
+	}
+
+	printf(CHALK_GREEN("Generated password: %s\n"), password);
+
+	free(password);
 	return 0;
 }
