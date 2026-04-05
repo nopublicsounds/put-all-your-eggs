@@ -17,6 +17,7 @@ pwmgr init
 | `pwmgr delete <site> [db_path]` | Delete a site entry with confirmation (requires master password). |
 | `pwmgr list [db_path]` | List all saved site names. |
 | `pwmgr generate <length>` | Generate a random password with uppercase, lowercase, digits, and special characters. |
+| `pwmgr change-master` | Change master password. |
 
 ## Password Generator
 ```bash
