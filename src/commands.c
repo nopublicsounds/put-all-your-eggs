@@ -365,6 +365,7 @@ int cmd_list(const char *db_path) {
 		printf("%s\n", sqlite3_column_text(stmt, 0));
 		count++;
 	}
+	printf(CHALK_BOLD("\nTotal %d entries\n"), count);
 
 	if (count == 0)
 		printf(CHALK_YELLOW("(Empty)\n"));
