@@ -8,6 +8,35 @@
 
 #define INPUT_SIZE 256
 
+static int entry_exists(sqlite3 *db, const char *site) {
+	sqlite3_stmt *stmt;
+	const char *sql = "SELECT 1 FROM entries WHERE site = ? LIMIT 1;";
+	int exists = 0;
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		return 0;
+	}
+
+	sqlite3_bind_text(stmt, 1, site, -1, SQLITE_TRANSIENT);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		exists = 1;
+	}
+
+	sqlite3_finalize(stmt);
+	return exists;
+}
+
+static int confirm_overwrite(const char *site) {
+	char response[16];
+
+	printf("An entry for '%s' already exists. Overwrite it? (y/N): ", site);
+	if (fgets(response, sizeof(response), stdin) == NULL) {
+		return 0;
+	}
+
+	return response[0] == 'y' || response[0] == 'Y';
+}
+
 int cmd_init(const char *db_path) {
 	sqlite3 *db;
 	char *errmsg = NULL;
@@ -55,8 +84,10 @@ int cmd_add(const char *db_path, const char *site) {
 	sqlite3_stmt *stmt;
 	char username[INPUT_SIZE];
 	char password[INPUT_SIZE];
+	int exists;
 	const char *sql =
-		"INSERT INTO entries (site, username, password) VALUES (?, ?, ?);";
+		"INSERT INTO entries (site, username, password) VALUES (?, ?, ?) "
+		"ON CONFLICT(site) DO UPDATE SET username = excluded.username, password = excluded.password;";
 
 	if (!db_must_exist(db_path)) return 1;
 
@@ -67,6 +98,19 @@ int cmd_add(const char *db_path, const char *site) {
 		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
 		sqlite3_close(db);
 		return 1;
+	}
+
+	if (!table_exists(db, "entries")) {
+		fprintf(stderr, CHALK_YELLOW("Table 'entries' not found. Run init first.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	exists = entry_exists(db, site);
+	if (exists && !confirm_overwrite(site)) {
+		printf(CHALK_YELLOW("Save cancelled.\n"));
+		sqlite3_close(db);
+		return 0;
 	}
 
 	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
@@ -86,7 +130,11 @@ int cmd_add(const char *db_path, const char *site) {
 		return 1;
 	}
 
-	printf(CHALK_GREEN("Saved: %s\n"), site);
+	if (exists) {
+		printf(CHALK_GREEN("Updated: %s\n"), site);
+	} else {
+		printf(CHALK_GREEN("Saved: %s\n"), site);
+	}
 	sqlite3_finalize(stmt);
 	sqlite3_close(db);
 	return 0;
