@@ -400,3 +400,28 @@ int cmd_generate(int length) {
 	free(password);
 	return 0;
 }
+
+int cmd_change_master(const char *db_path) {
+	sqlite3 *db;
+
+	if (!db_must_exist(db_path)) return 1;
+
+	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!table_exists(db, "master_auth")) {
+		fprintf(stderr, CHALK_YELLOW("Master auth table not found. Run init first.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!setup_master_password(db)) {
+		sqlite3_close(db);
+		return 1;
+	}
+	sqlite3_close(db);
+	return 0;
+}

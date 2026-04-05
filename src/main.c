@@ -104,6 +104,14 @@ int main(int argc, char **argv) {
         return cmd_generate((int)length);
     }
 
+    if (strcmp(command, "change-master") == 0) {
+        const char *db_path = (argc >= 3) ? argv[2] : DEFAULT_DB;
+        if (!authenticate_master(db_path)) {
+            return 1;
+        }
+        return cmd_change_master(db_path);
+    }
+
     usage(argv[0]);
     return 1;
 }
