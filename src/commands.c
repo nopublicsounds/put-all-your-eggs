@@ -7,6 +7,7 @@
 #include "chalk.h"
 #include "db.h"
 #include "auth.h"
+#include "crypto_utils.h"
 #include "commands.h"
 
 #define INPUT_SIZE 256
@@ -21,6 +22,27 @@ static const char ALL_PASSWORD_CHARS[] =
 	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	"0123456789"
 	"!@#$%^&*()-_=+[]{};:,.?/";
+
+static int get_master_hash_key(sqlite3 *db, unsigned char key[MASTER_KEY_BYTES]) {
+	sqlite3_stmt *stmt;
+	const char *stored;
+	const char *sql = "SELECT password FROM master_auth WHERE id = 1;";
+	int ok = 0;
+
+	if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+		return 0;
+	}
+
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		stored = (const char *)sqlite3_column_text(stmt, 0);
+		if (stored != NULL) {
+			ok = derive_key_from_stored_hash(stored, key);
+		}
+	}
+
+	sqlite3_finalize(stmt);
+	return ok;
+}
 
 static int fill_random_bytes(unsigned char *buffer, size_t size) {
 	FILE *random_file = fopen("/dev/urandom", "rb");
@@ -199,6 +221,8 @@ int cmd_add(const char *db_path, const char *site) {
 	sqlite3_stmt *stmt;
 	char username[INPUT_SIZE];
 	char password[INPUT_SIZE];
+	char encrypted_password[ENCRYPTED_SECRET_MAX];
+	unsigned char master_key[MASTER_KEY_BYTES];
 	int exists;
 	const char *sql =
 		"INSERT INTO entries (site, username, password) VALUES (?, ?, ?) "
@@ -221,6 +245,18 @@ int cmd_add(const char *db_path, const char *site) {
 		return 1;
 	}
 
+	if (!get_master_hash_key(db, master_key)) {
+		fprintf(stderr, CHALK_RED("Master hash key not available. Run init first.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!encrypt_secret(password, master_key, encrypted_password, sizeof(encrypted_password))) {
+		fprintf(stderr, CHALK_RED("Failed to encrypt password.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
 	exists = entry_exists(db, site);
 	if (exists && !confirm_overwrite(db_path, site)) {
 		printf(CHALK_YELLOW("Save cancelled.\n"));
@@ -236,7 +272,7 @@ int cmd_add(const char *db_path, const char *site) {
 
 	sqlite3_bind_text(stmt, 1, site,     -1, SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 2, username, -1, SQLITE_TRANSIENT);
-	sqlite3_bind_text(stmt, 3, password, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_text(stmt, 3, encrypted_password, -1, SQLITE_TRANSIENT);
 
 	if (sqlite3_step(stmt) != SQLITE_DONE) {
 		fprintf(stderr, CHALK_RED("Failed to save: %s\n"), sqlite3_errmsg(db));
@@ -258,6 +294,9 @@ int cmd_add(const char *db_path, const char *site) {
 int cmd_get(const char *db_path, const char *site) {
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
+	unsigned char master_key[MASTER_KEY_BYTES];
+	char decrypted_password[INPUT_SIZE];
+	const char *stored_password;
 	const char *sql =
 		"SELECT username, password FROM entries WHERE site = ?;";
 
@@ -273,12 +312,35 @@ int cmd_get(const char *db_path, const char *site) {
 		return 1;
 	}
 
+	if (!get_master_hash_key(db, master_key)) {
+		fprintf(stderr, CHALK_RED("Master hash key not available. Run init first.\n"));
+		sqlite3_finalize(stmt);
+		sqlite3_close(db);
+		return 1;
+	}
+
 	sqlite3_bind_text(stmt, 1, site, -1, SQLITE_TRANSIENT);
 
 	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		stored_password = (const char *)sqlite3_column_text(stmt, 1);
+		if (stored_password == NULL) {
+			stored_password = "";
+		}
+
+		if (!decrypt_secret(stored_password, master_key, decrypted_password, sizeof(decrypted_password))) {
+			if (!is_encrypted_secret_format(stored_password)) {
+				snprintf(decrypted_password, sizeof(decrypted_password), "%s", stored_password);
+			} else {
+				fprintf(stderr, CHALK_RED("Failed to decrypt password.\n"));
+				sqlite3_finalize(stmt);
+				sqlite3_close(db);
+				return 1;
+			}
+		}
+
 		printf("Site     : %s\n", site);
 		printf("Username : %s\n", sqlite3_column_text(stmt, 0));
-		printf("Password : %s\n", sqlite3_column_text(stmt, 1));
+		printf("Password : %s\n", decrypted_password);
 	} else {
 		fprintf(stderr, CHALK_YELLOW("No entry found: %s\n"), site);
 		sqlite3_finalize(stmt);
@@ -430,6 +492,126 @@ int cmd_change_master(const char *db_path) {
 		sqlite3_close(db);
 		return 1;
 	}
+	sqlite3_close(db);
+	return 0;
+}
+
+int cmd_migrate(const char *db_path) {
+	sqlite3 *db;
+	sqlite3_stmt *select_stmt = NULL;
+	sqlite3_stmt *update_stmt = NULL;
+	unsigned char master_key[MASTER_KEY_BYTES];
+	const char *select_sql = "SELECT site, password FROM entries;";
+	const char *update_sql = "UPDATE entries SET password = ? WHERE site = ?;";
+	int migrated = 0;
+	int skipped = 0;
+
+	if (!db_must_exist(db_path)) return 1;
+
+	if (sqlite3_open(db_path, &db) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to open DB: %s\n"), sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!table_exists(db, "entries")) {
+		fprintf(stderr, CHALK_YELLOW("Table 'entries' not found. Run init first.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (!get_master_hash_key(db, master_key)) {
+		fprintf(stderr, CHALK_RED("Master hash key not available. Run init first.\n"));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (sqlite3_exec(db, "BEGIN IMMEDIATE;", NULL, NULL, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to start transaction: %s\n"), sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (sqlite3_prepare_v2(db, select_sql, -1, &select_stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to prepare select SQL: %s\n"), sqlite3_errmsg(db));
+		sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+		sqlite3_close(db);
+		return 1;
+	}
+
+	if (sqlite3_prepare_v2(db, update_sql, -1, &update_stmt, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to prepare update SQL: %s\n"), sqlite3_errmsg(db));
+		sqlite3_finalize(select_stmt);
+		sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+		sqlite3_close(db);
+		return 1;
+	}
+
+	while (sqlite3_step(select_stmt) == SQLITE_ROW) {
+		const char *site = (const char *)sqlite3_column_text(select_stmt, 0);
+		const char *stored = (const char *)sqlite3_column_text(select_stmt, 1);
+		char plain[INPUT_SIZE];
+		char encrypted[ENCRYPTED_SECRET_MAX];
+
+		if (site == NULL || stored == NULL) {
+			skipped++;
+			continue;
+		}
+
+		if (decrypt_secret(stored, master_key, plain, sizeof(plain))) {
+			if (strncmp(stored, "enc:v1:", 7) == 0) {
+				skipped++;
+				continue;
+			}
+		} else {
+			if (is_encrypted_secret_format(stored)) {
+				fprintf(stderr, CHALK_RED("Failed to decrypt existing encrypted entry: %s\n"), site);
+				sqlite3_finalize(update_stmt);
+				sqlite3_finalize(select_stmt);
+				sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+				sqlite3_close(db);
+				return 1;
+			}
+			snprintf(plain, sizeof(plain), "%s", stored);
+		}
+
+		if (!encrypt_secret(plain, master_key, encrypted, sizeof(encrypted))) {
+			fprintf(stderr, CHALK_RED("Failed to encrypt entry: %s\n"), site);
+			sqlite3_finalize(update_stmt);
+			sqlite3_finalize(select_stmt);
+			sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+			sqlite3_close(db);
+			return 1;
+		}
+
+		sqlite3_reset(update_stmt);
+		sqlite3_clear_bindings(update_stmt);
+		sqlite3_bind_text(update_stmt, 1, encrypted, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(update_stmt, 2, site, -1, SQLITE_TRANSIENT);
+
+		if (sqlite3_step(update_stmt) != SQLITE_DONE) {
+			fprintf(stderr, CHALK_RED("Failed to update entry: %s\n"), site);
+			sqlite3_finalize(update_stmt);
+			sqlite3_finalize(select_stmt);
+			sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+			sqlite3_close(db);
+			return 1;
+		}
+
+		migrated++;
+	}
+
+	sqlite3_finalize(update_stmt);
+	sqlite3_finalize(select_stmt);
+
+	if (sqlite3_exec(db, "COMMIT;", NULL, NULL, NULL) != SQLITE_OK) {
+		fprintf(stderr, CHALK_RED("Failed to commit migration: %s\n"), sqlite3_errmsg(db));
+		sqlite3_exec(db, "ROLLBACK;", NULL, NULL, NULL);
+		sqlite3_close(db);
+		return 1;
+	}
+
+	printf(CHALK_GREEN("Migration complete. migrated=%d, skipped=%d\n"), migrated, skipped);
 	sqlite3_close(db);
 	return 0;
 }

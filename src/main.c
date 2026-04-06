@@ -17,6 +17,7 @@ static void usage(const char *program) {
             "  %s delete <site> " CHALK_DIM("[db_path]") " Delete a site entry (with confirmation)\n"
             "  %s list " CHALK_DIM("[db_path]") "         List all saved site names\n"
             "  %s generate <length>            Generate a random password\n"
+            "  %s migrate " CHALK_DIM("[db_path]") "      Encrypt legacy/plain passwords\n"
             "\n"
             "Notes:\n"
             "  - " CHALK_DIM("db_path") " is optional. Default: " CHALK_BOLD(DEFAULT_DB) "\n"
@@ -28,9 +29,10 @@ static void usage(const char *program) {
             "  %s get github\n"
             "  %s delete github\n"
             "  %s list\n"
-            "  %s generate 20\n",
-            program, program, program, program, program, program,
-            program, program, program, program, program, program);
+            "  %s generate 20\n"
+            "  %s migrate\n",
+            program, program, program, program, program, program, program,
+            program, program, program, program, program, program, program);
 }
 
 int main(int argc, char **argv) {
@@ -110,6 +112,14 @@ int main(int argc, char **argv) {
             return 1;
         }
         return cmd_change_master(db_path);
+    }
+
+    if (strcmp(command, "migrate") == 0) {
+        const char *db_path = (argc >= 3) ? argv[2] : DEFAULT_DB;
+        if (!authenticate_master(db_path)) {
+            return 1;
+        }
+        return cmd_migrate(db_path);
     }
 
     usage(argv[0]);
