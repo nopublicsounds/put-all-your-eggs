@@ -1,6 +1,6 @@
 CC      = gcc
 CFLAGS  = -Wall -Wextra -pedantic -std=c11 -Iinclude
-LIBS    = -lsqlite3
+LIBS    = -lsqlite3 -lcrypto
 TARGET  = pwmgr
 SRCDIR  = src
 OBJDIR  = build
@@ -21,6 +21,10 @@ $(OBJDIR):
 
 clean:
 	rm -rf $(OBJDIR) $(TARGET)
+
+test: $(OBJDIR)
+	$(CC) $(CFLAGS) tests/test_hash.c -lcrypto -o $(OBJDIR)/test_hash
+	./$(OBJDIR)/test_hash
 
 install: $(TARGET)
 	mkdir -p $(BINDIR)
