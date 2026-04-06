@@ -137,11 +137,19 @@ static int entry_exists(sqlite3 *db, const char *site) {
 	return exists;
 }
 
-static int confirm_overwrite(const char *site) {
+static int confirm_overwrite(const char *db_path, const char *site) {
 	char prompt[INPUT_SIZE];
 
 	snprintf(prompt, sizeof(prompt), "An entry for '%s' already exists. Overwrite it? (y/N): ", site);
-	return prompt_yes_no(prompt);
+	if (!prompt_yes_no(prompt)) {
+		return 0;
+	}
+
+	if (!authenticate_master(db_path)) {
+		return 0;
+	}
+
+	return 1;
 }
 
 int cmd_init(const char *db_path) {
@@ -214,7 +222,7 @@ int cmd_add(const char *db_path, const char *site) {
 	}
 
 	exists = entry_exists(db, site);
-	if (exists && !confirm_overwrite(site)) {
+	if (exists && !confirm_overwrite(db_path, site)) {
 		printf(CHALK_YELLOW("Save cancelled.\n"));
 		sqlite3_close(db);
 		return 0;
