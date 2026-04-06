@@ -27,3 +27,4 @@ pwmgr generate 20
 - Length must be at least 4 so every character group can be included.
 - Generated passwords always include uppercase letters, lowercase letters, digits, and special characters.
 
+BUILDING WITH GITHUB COPILOT
