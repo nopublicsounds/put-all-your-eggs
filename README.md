@@ -106,14 +106,6 @@ pwmgr generate 20
 - Length must be at least `4`.
 - Output always contains: uppercase, lowercase, digits, specials.
 
-## Development
-
-```bash
-make clean
-make
-make test
-```
-
 ## Notes
 
 - `get`, `delete`, `change-master`, `migrate` require master authentication.
