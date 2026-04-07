@@ -17,6 +17,7 @@ static void usage(const char *program) {
             "  %s delete <site> " CHALK_DIM("[db_path]") " Delete a site entry (with confirmation)\n"
             "  %s list " CHALK_DIM("[db_path]") "         List all saved site names\n"
             "  %s generate <length>            Generate a random password\n"
+            "  %s change-master " CHALK_DIM("[db_path]") " Change master password\n"
             "  %s migrate " CHALK_DIM("[db_path]") "      Encrypt legacy/plain passwords\n"
             "\n"
             "Notes:\n"
@@ -30,9 +31,10 @@ static void usage(const char *program) {
             "  %s delete github\n"
             "  %s list\n"
             "  %s generate 20\n"
+            "  %s change-master\n"
             "  %s migrate\n",
-            program, program, program, program, program, program, program,
-            program, program, program, program, program, program, program);
+            program, program, program, program, program, program, program, program,
+            program, program, program, program, program, program, program, program);
 }
 
 int main(int argc, char **argv) {
