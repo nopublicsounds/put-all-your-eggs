@@ -7,6 +7,7 @@ OBJDIR  = build
 BINDIR  ?= $(HOME)/.local/bin
 SRCS    = $(wildcard $(SRCDIR)/*.c)
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
+TEST_BINS = $(OBJDIR)/test_hash $(OBJDIR)/test_crypto_utils
 
 all: $(TARGET)
 
@@ -22,9 +23,15 @@ $(OBJDIR):
 clean:
 	rm -rf $(OBJDIR) $(TARGET)
 
-test: $(OBJDIR)
-	$(CC) $(CFLAGS) tests/test_hash.c -lcrypto -o $(OBJDIR)/test_hash
+test: $(TEST_BINS)
 	./$(OBJDIR)/test_hash
+	./$(OBJDIR)/test_crypto_utils
+
+$(OBJDIR)/test_hash: tests/test_hash.c | $(OBJDIR)
+	$(CC) $(CFLAGS) $< -lcrypto -o $@
+
+$(OBJDIR)/test_crypto_utils: tests/test_crypto_utils.c src/crypto_utils.c | $(OBJDIR)
+	$(CC) $(CFLAGS) $^ -lcrypto -o $@
 
 install: $(TARGET)
 	mkdir -p $(BINDIR)
@@ -33,4 +40,4 @@ install: $(TARGET)
 uninstall:
 	rm -f $(BINDIR)/$(TARGET)
 
-.PHONY: all clean install uninstall
+.PHONY: all clean test install uninstall
