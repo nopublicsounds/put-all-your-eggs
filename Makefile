@@ -8,7 +8,7 @@ BINDIR  ?= $(HOME)/.local/bin
 SRCS    = $(wildcard $(SRCDIR)/*.c)
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 TEST_BINS = $(OBJDIR)/test_hash $(OBJDIR)/test_crypto_utils
-TEST_SCRIPTS = tests/test_cli_basic.sh
+TEST_SCRIPTS = tests/test_cli_basic.sh tests/test_cli_migrate.sh
 
 all: $(TARGET)
 
@@ -28,6 +28,7 @@ test: $(TARGET) $(TEST_BINS)
 	./$(OBJDIR)/test_hash
 	./$(OBJDIR)/test_crypto_utils
 	./tests/test_cli_basic.sh
+	./tests/test_cli_migrate.sh
 
 $(OBJDIR)/test_hash: tests/test_hash.c | $(OBJDIR)
 	$(CC) $(CFLAGS) $< -lcrypto -o $@
