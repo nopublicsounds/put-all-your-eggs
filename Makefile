@@ -5,7 +5,19 @@ TARGET  = pwmgr
 SRCDIR  = src
 OBJDIR  = build
 BINDIR  ?= $(HOME)/.local/bin
-SRCS    = $(wildcard $(SRCDIR)/*.c)
+SRCS    = $(SRCDIR)/main.c \
+          $(SRCDIR)/cmd_init.c \
+          $(SRCDIR)/cmd_add.c \
+          $(SRCDIR)/cmd_get.c \
+          $(SRCDIR)/cmd_delete.c \
+          $(SRCDIR)/cmd_list.c \
+          $(SRCDIR)/cmd_generate.c \
+          $(SRCDIR)/cmd_change_master.c \
+          $(SRCDIR)/cmd_migrate.c \
+          $(SRCDIR)/cmd_private.c \
+          $(SRCDIR)/auth.c \
+          $(SRCDIR)/db.c \
+          $(SRCDIR)/crypto_utils.c
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 TEST_BINS = $(OBJDIR)/test_hash $(OBJDIR)/test_crypto_utils
 TEST_SCRIPTS = tests/test_cli_basic.sh tests/test_cli_migrate.sh
