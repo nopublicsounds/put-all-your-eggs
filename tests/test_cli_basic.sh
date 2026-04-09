@@ -34,7 +34,7 @@ assert_contains() {
 
 trap cleanup EXIT INT TERM
 
-printf '=== CLI 기본 통합 테스트 ===\n\n'
+printf '=== CLI Basic Integration Tests ===\n\n'
 
 init_output=$(run_cli "$MASTER_PASSWORD\n$MASTER_PASSWORD\n" "$ROOT_DIR/pwmgr init '$DB_PATH'")
 assert_contains "$init_output" 'Master password set successfully.' 'init sets master password'

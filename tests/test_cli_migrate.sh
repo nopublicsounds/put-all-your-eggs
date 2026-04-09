@@ -52,7 +52,7 @@ assert_starts_with() {
 
 trap cleanup EXIT INT TERM
 
-printf '=== CLI migrate 통합 테스트 ===\n\n'
+printf '=== CLI Migrate Integration Tests ===\n\n'
 
 init_output=$(run_cli "$MASTER_PASSWORD\n$MASTER_PASSWORD\n" "$ROOT_DIR/pwmgr init '$DB_PATH'")
 assert_contains "$init_output" 'Vault initialized:' 'init prepares vault for migrate test'

@@ -23,7 +23,7 @@ static int failed = 0;
 		} \
 	} while (0)
 
-/* ── 아래는 auth.c의 static 함수를 그대로 복사해 테스트 ── */
+/* ── static functions copied from auth.c for testing ── */
 
 static void hex_encode(const unsigned char *src, size_t len, char *dst) {
 	static const char hex[] = "0123456789abcdef";
@@ -108,24 +108,24 @@ static void test_hash_produces_stored_format(void) {
 	const char *colon;
 	int ok = hash_password("secret123", stored);
 
-	ASSERT("hash 생성 성공", ok);
-	ASSERT("저장 형식에 콜론 포함", strchr(stored, ':') != NULL);
+	ASSERT("hash generation succeeds", ok);
+	ASSERT("stored format contains colon", strchr(stored, ':') != NULL);
 
 	colon = strchr(stored, ':');
-	ASSERT("솔트 hex 길이 == 64", colon != NULL && (colon - stored) == SALT_BYTES * 2);
-	ASSERT("해시 hex 길이 == 64", colon != NULL && strlen(colon + 1) == HASH_BYTES * 2);
+	ASSERT("salt hex length == 64", colon != NULL && (colon - stored) == SALT_BYTES * 2);
+	ASSERT("hash hex length == 64", colon != NULL && strlen(colon + 1) == HASH_BYTES * 2);
 }
 
 static void test_correct_password_verifies(void) {
 	char stored[STORED_HASH_SIZE];
 	hash_password("correct_horse", stored);
-	ASSERT("올바른 비밀번호 검증 통과", verify_password("correct_horse", stored));
+	ASSERT("correct password verifies", verify_password("correct_horse", stored));
 }
 
 static void test_wrong_password_fails(void) {
 	char stored[STORED_HASH_SIZE];
 	hash_password("correct_horse", stored);
-	ASSERT("틀린 비밀번호 검증 실패", !verify_password("wrong_horse", stored));
+	ASSERT("wrong password fails verification", !verify_password("wrong_horse", stored));
 }
 
 static void test_same_password_different_hashes(void) {
@@ -133,7 +133,7 @@ static void test_same_password_different_hashes(void) {
 	char stored2[STORED_HASH_SIZE];
 	hash_password("samepassword", stored1);
 	hash_password("samepassword", stored2);
-	ASSERT("같은 비밀번호도 솔트 달라 해시 다름", strcmp(stored1, stored2) != 0);
+	ASSERT("same password produces different hashes due to salt", strcmp(stored1, stored2) != 0);
 }
 
 static void test_each_stored_verifies_only_its_own(void) {
@@ -141,24 +141,24 @@ static void test_each_stored_verifies_only_its_own(void) {
 	char stored2[STORED_HASH_SIZE];
 	hash_password("password_A", stored1);
 	hash_password("password_B", stored2);
-	ASSERT("stored1은 password_A만 통과", verify_password("password_A", stored1));
-	ASSERT("stored1은 password_B 거부",  !verify_password("password_B", stored1));
-	ASSERT("stored2는 password_B만 통과", verify_password("password_B", stored2));
-	ASSERT("stored2는 password_A 거부",  !verify_password("password_A", stored2));
+	ASSERT("stored1 accepts password_A only",  verify_password("password_A", stored1));
+	ASSERT("stored1 rejects password_B",        !verify_password("password_B", stored1));
+	ASSERT("stored2 accepts password_B only",  verify_password("password_B", stored2));
+	ASSERT("stored2 rejects password_A",        !verify_password("password_A", stored2));
 }
 
 static void test_empty_password(void) {
 	char stored[STORED_HASH_SIZE];
-	/* 빈 문자열도 해싱/검증 가능해야 함 */
-	ASSERT("빈 비밀번호 해시 생성", hash_password("", stored));
-	ASSERT("빈 비밀번호 검증 통과", verify_password("", stored));
-	ASSERT("빈 비밀번호 != 다른 값", !verify_password("notempty", stored));
+	/* empty string must also be hashable and verifiable */
+	ASSERT("empty password hashes successfully", hash_password("", stored));
+	ASSERT("empty password verifies",             verify_password("", stored));
+	ASSERT("empty password does not match other value", !verify_password("notempty", stored));
 }
 
 static void test_malformed_stored(void) {
-	ASSERT("콜론 없는 입력 거부",        !verify_password("pw", "deadbeef"));
-	ASSERT("솔트 길이 부족 거부",        !verify_password("pw", "aabb:1234"));
-	ASSERT("빈 문자열 거부",             !verify_password("pw", ""));
+	ASSERT("input without colon is rejected",   !verify_password("pw", "deadbeef"));
+	ASSERT("input with short salt is rejected", !verify_password("pw", "aabb:1234"));
+	ASSERT("empty string is rejected",          !verify_password("pw", ""));
 }
 
 static void test_hex_roundtrip(void) {
@@ -176,11 +176,11 @@ static void test_hex_roundtrip(void) {
 	for (i = 0; i < SALT_BYTES; i++) {
 		if (original[i] != decoded[i]) { match = 0; break; }
 	}
-	ASSERT("hex encode → decode 라운드트립", match);
+	ASSERT("hex encode -> decode roundtrip", match);
 }
 
 int main(void) {
-	printf("=== 해싱 단위 테스트 ===\n\n");
+	printf("=== Hash Unit Tests ===\n\n");
 
 	test_hash_produces_stored_format();
 	test_correct_password_verifies();
@@ -191,6 +191,6 @@ int main(void) {
 	test_malformed_stored();
 	test_hex_roundtrip();
 
-	printf("\n결과: %d 통과 / %d 실패\n", passed, failed);
+	printf("\nResult: %d passed / %d failed\n", passed, failed);
 	return failed > 0 ? 1 : 0;
 }
