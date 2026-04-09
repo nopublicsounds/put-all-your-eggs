@@ -6,7 +6,7 @@ int cmd_add(const char *db_path, const char *site);
 int cmd_get(const char *db_path, const char *site);
 int cmd_delete(const char *db_path, const char *site);
 int cmd_list(const char *db_path);
-int cmd_generate(int length);
+int cmd_generate(const char *db_path, int length);
 int cmd_change_master(const char *db_path);
 int cmd_migrate(const char *db_path);
 

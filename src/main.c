@@ -93,8 +93,9 @@ int main(int argc, char **argv) {
     if (strcmp(command, "generate") == 0) {
         char *endptr;
         long length;
+        const char *db_path;
 
-        if (argc != 3) {
+        if (argc < 3 || argc > 4) {
             usage(argv[0]);
             return 1;
         }
@@ -105,7 +106,8 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        return cmd_generate((int)length);
+        db_path = (argc == 4) ? argv[3] : DEFAULT_DB;
+        return cmd_generate(db_path, (int)length);
     }
 
     if (strcmp(command, "change-master") == 0) {
