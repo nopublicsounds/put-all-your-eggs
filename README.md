@@ -51,8 +51,12 @@ pwmgr add github
 pwmgr get github
 ```
 
-Default DB path is `vault.db` in the current directory.
-You can pass a custom DB path as the last argument in DB-based commands.
+DB path resolution priority is:
+
+1. Command argument (`[db_path]`)
+2. Environment variable `PWMGR_DB_PATH`
+3. Saved config value (`pwmgr config set db <path>`)
+4. Fallback `vault.db` in current directory
 
 ## Commands
 
@@ -66,6 +70,8 @@ You can pass a custom DB path as the last argument in DB-based commands.
 | `pwmgr generate <length>` | Generate random password. Minimum length is 4. |
 | `pwmgr change-master [db_path]` | Change master password (requires current master password). |
 | `pwmgr migrate [db_path]` | Migrate legacy/plain or old encrypted entries to `enc:v1` encrypted format. |
+| `pwmgr config get db` | Show effective default DB path after applying priority rules. |
+| `pwmgr config set db <path>` | Save default DB path (`~/.config/pwmgr/config` or `$XDG_CONFIG_HOME/pwmgr/config`). |
 
 ## Security Model (Current)
 
