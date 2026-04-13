@@ -5,6 +5,8 @@ set -eu
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 DB_DIR=$(mktemp -d)
 DB_PATH="$DB_DIR/vault.db"
+ALT_DB_PATH="$DB_DIR/alt.db"
+ENV_DB_PATH="$DB_DIR/env.db"
 MASTER_PASSWORD='MasterPass!2026'
 
 cleanup() {
@@ -92,6 +94,45 @@ esac
 
 get_gen_output=$(run_cli "$MASTER_PASSWORD\n" "$ROOT_DIR/pwmgr get gensite '$DB_PATH'")
 assert_contains "$get_gen_output" 'Username : genuser' 'generate entry username matches'
+
+set_config_output=$("$ROOT_DIR/pwmgr" config set db "$ALT_DB_PATH")
+assert_contains "$set_config_output" 'Default DB set to:' 'config set db reports saved path'
+
+config_get_output=$("$ROOT_DIR/pwmgr" config get db)
+assert_contains "$config_get_output" "$ALT_DB_PATH" 'config get db returns configured path'
+
+init_alt_output=$(run_cli "$MASTER_PASSWORD\n$MASTER_PASSWORD\n" "$ROOT_DIR/pwmgr init")
+assert_contains "$init_alt_output" 'Vault initialized:' 'init without db_path uses configured default db'
+
+if [ ! -f "$ALT_DB_PATH" ]; then
+	printf '  FAIL  configured default db file is created\n'
+	exit 1
+else
+	printf '  PASS  configured default db file is created\n'
+fi
+
+env_config_get_output=$(PWMGR_DB_PATH="$ENV_DB_PATH" "$ROOT_DIR/pwmgr" config get db)
+assert_contains "$env_config_get_output" "$ENV_DB_PATH" 'env var overrides config for effective db'
+
+init_env_output=$(run_cli "$MASTER_PASSWORD\n$MASTER_PASSWORD\n" "PWMGR_DB_PATH='$ENV_DB_PATH' $ROOT_DIR/pwmgr init")
+assert_contains "$init_env_output" 'Vault initialized:' 'init without db_path uses env db override'
+
+if [ ! -f "$ENV_DB_PATH" ]; then
+	printf '  FAIL  env override db file is created\n'
+	exit 1
+else
+	printf '  PASS  env override db file is created\n'
+fi
+
+explicit_cli_output=$(run_cli "$MASTER_PASSWORD\n$MASTER_PASSWORD\n" "PWMGR_DB_PATH='$ENV_DB_PATH' $ROOT_DIR/pwmgr init '$DB_PATH'")
+assert_contains "$explicit_cli_output" 'Vault initialized:' 'explicit db_path overrides env/config'
+
+if [ ! -f "$DB_PATH" ]; then
+	printf '  FAIL  explicit db_path file is created\n'
+	exit 1
+else
+	printf '  PASS  explicit db_path file is created\n'
+fi
 
 set +e
 get_missing_output=$(run_cli "$MASTER_PASSWORD\n" "$ROOT_DIR/pwmgr get github '$DB_PATH'" 2>&1)
