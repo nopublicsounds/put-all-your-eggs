@@ -146,4 +146,47 @@ fi
 
 assert_contains "$get_missing_output" 'No entry found: github' 'get missing entry reports not found'
 
+set +e
+init_extra_output=$("$ROOT_DIR/pwmgr" init "$DB_PATH" extra 2>&1)
+init_extra_status=$?
+list_extra_output=$("$ROOT_DIR/pwmgr" list "$DB_PATH" extra 2>&1)
+list_extra_status=$?
+change_extra_output=$("$ROOT_DIR/pwmgr" change-master "$DB_PATH" extra 2>&1)
+change_extra_status=$?
+migrate_extra_output=$("$ROOT_DIR/pwmgr" migrate "$DB_PATH" extra 2>&1)
+migrate_extra_status=$?
+set -e
+
+if [ "$init_extra_status" -eq 0 ]; then
+	printf '  FAIL  init rejects extra argument\n'
+	exit 1
+else
+	printf '  PASS  init rejects extra argument\n'
+fi
+assert_contains "$init_extra_output" 'Usage:' 'init extra argument shows usage'
+
+if [ "$list_extra_status" -eq 0 ]; then
+	printf '  FAIL  list rejects extra argument\n'
+	exit 1
+else
+	printf '  PASS  list rejects extra argument\n'
+fi
+assert_contains "$list_extra_output" 'Usage:' 'list extra argument shows usage'
+
+if [ "$change_extra_status" -eq 0 ]; then
+	printf '  FAIL  change-master rejects extra argument\n'
+	exit 1
+else
+	printf '  PASS  change-master rejects extra argument\n'
+fi
+assert_contains "$change_extra_output" 'Usage:' 'change-master extra argument shows usage'
+
+if [ "$migrate_extra_status" -eq 0 ]; then
+	printf '  FAIL  migrate rejects extra argument\n'
+	exit 1
+else
+	printf '  PASS  migrate rejects extra argument\n'
+fi
+assert_contains "$migrate_extra_output" 'Usage:' 'migrate extra argument shows usage'
+
 printf '\nCLI basic integration test passed.\n'
