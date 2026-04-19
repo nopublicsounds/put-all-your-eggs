@@ -286,6 +286,10 @@ int main(int argc, char **argv) {
     }
 
     if (strcmp(command, "init") == 0) {
+        if (argc > 3) {
+            usage(argv[0]);
+            return 1;
+        }
         const char *db_path = resolve_db_path((argc >= 3) ? argv[2] : NULL, db_from_config, sizeof(db_from_config));
         return cmd_init(db_path);
     }
@@ -324,6 +328,10 @@ int main(int argc, char **argv) {
     }
 
     if (strcmp(command, "list") == 0) {
+        if (argc > 3) {
+            usage(argv[0]);
+            return 1;
+        }
         const char *db_path = resolve_db_path((argc >= 3) ? argv[2] : NULL, db_from_config, sizeof(db_from_config));
         return cmd_list(db_path);
     }
@@ -349,6 +357,10 @@ int main(int argc, char **argv) {
     }
 
     if (strcmp(command, "change-master") == 0) {
+        if (argc > 3) {
+            usage(argv[0]);
+            return 1;
+        }
         const char *db_path = resolve_db_path((argc >= 3) ? argv[2] : NULL, db_from_config, sizeof(db_from_config));
         if (!authenticate_master(db_path)) {
             return 1;
@@ -357,6 +369,10 @@ int main(int argc, char **argv) {
     }
 
     if (strcmp(command, "migrate") == 0) {
+        if (argc > 3) {
+            usage(argv[0]);
+            return 1;
+        }
         const char *db_path = resolve_db_path((argc >= 3) ? argv[2] : NULL, db_from_config, sizeof(db_from_config));
         if (!authenticate_master(db_path)) {
             return 1;
