@@ -20,7 +20,7 @@ SRCS    = $(SRCDIR)/main.c \
           $(SRCDIR)/crypto_utils.c
 OBJS    = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
 TEST_BINS = $(OBJDIR)/test_hash $(OBJDIR)/test_crypto_utils
-TEST_SCRIPTS = tests/test_cli_basic.sh tests/test_cli_migrate.sh
+TEST_SCRIPTS = tests/test_cli_basic.sh tests/test_cli_migrate.sh tests/test_cli_generate.sh
 
 all: $(TARGET)
 
