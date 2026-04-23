@@ -12,11 +12,6 @@ static const char LOWER_CHARS[] = "abcdefghijklmnopqrstuvwxyz";
 static const char UPPER_CHARS[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 static const char DIGIT_CHARS[] = "0123456789";
 static const char SPECIAL_CHARS[] = "!@#$%^&*()-_=+[]{};:,.?/";
-static const char ALL_PASSWORD_CHARS[] =
-	"abcdefghijklmnopqrstuvwxyz"
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	"0123456789"
-	"!@#$%^&*()-_=+[]{};:,.?/";
 
 int get_master_hash_key(sqlite3 *db, unsigned char key[MASTER_KEY_BYTES]) {
 	sqlite3_stmt *stmt;
@@ -105,16 +100,72 @@ static int fill_password_group(char *password, int start, int count, const char 
 }
 
 int generate_password(char *password, int length) {
-	if (length < MIN_PASSWORD_LENGTH) {
+	return generate_password_ex(password, length, PW_FLAG_ALL);
+}
+
+int generate_password_ex(char *password, int length, unsigned int flags) {
+	int pos = 0;
+	int n_groups = 0;
+	char combined[256];
+	size_t combined_len = 0;
+
+	/* Count active groups and build combined charset */
+	if (flags & PW_FLAG_LOWER) {
+		n_groups++;
+		size_t len = strlen(LOWER_CHARS);
+		memcpy(combined + combined_len, LOWER_CHARS, len);
+		combined_len += len;
+	}
+	if (flags & PW_FLAG_UPPER) {
+		n_groups++;
+		size_t len = strlen(UPPER_CHARS);
+		memcpy(combined + combined_len, UPPER_CHARS, len);
+		combined_len += len;
+	}
+	if (flags & PW_FLAG_DIGIT) {
+		n_groups++;
+		size_t len = strlen(DIGIT_CHARS);
+		memcpy(combined + combined_len, DIGIT_CHARS, len);
+		combined_len += len;
+	}
+	if (flags & PW_FLAG_SPECIAL) {
+		n_groups++;
+		size_t len = strlen(SPECIAL_CHARS);
+		memcpy(combined + combined_len, SPECIAL_CHARS, len);
+		combined_len += len;
+	}
+	combined[combined_len] = '\0';
+
+	if (n_groups == 0 || combined_len == 0) {
 		return 0;
 	}
 
+	/* length must be at least one per active group */
+	if (length < n_groups) {
+		return 0;
+	}
+
+	/* Guarantee at least 1 char from each active group */
+	if (flags & PW_FLAG_LOWER) {
+		if (!fill_password_group(password, pos, 1, LOWER_CHARS)) return 0;
+		pos++;
+	}
+	if (flags & PW_FLAG_UPPER) {
+		if (!fill_password_group(password, pos, 1, UPPER_CHARS)) return 0;
+		pos++;
+	}
+	if (flags & PW_FLAG_DIGIT) {
+		if (!fill_password_group(password, pos, 1, DIGIT_CHARS)) return 0;
+		pos++;
+	}
+	if (flags & PW_FLAG_SPECIAL) {
+		if (!fill_password_group(password, pos, 1, SPECIAL_CHARS)) return 0;
+		pos++;
+	}
+
+	/* Fill remaining positions from combined charset */
+	if (!fill_password_group(password, pos, length - pos, combined)) return 0;
 	password[length] = '\0';
-	if (!fill_password_group(password, 0, 1, LOWER_CHARS)) return 0;
-	if (!fill_password_group(password, 1, 1, UPPER_CHARS)) return 0;
-	if (!fill_password_group(password, 2, 1, DIGIT_CHARS)) return 0;
-	if (!fill_password_group(password, 3, 1, SPECIAL_CHARS)) return 0;
-	if (!fill_password_group(password, 4, length - 4, ALL_PASSWORD_CHARS)) return 0;
 	shuffle_password(password, length);
 	return 1;
 }

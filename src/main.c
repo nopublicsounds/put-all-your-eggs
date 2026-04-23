@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include "chalk.h"
 #include "auth.h"
+#include "cmd_private.h"
 #include "commands.h"
 
 #ifndef PATH_MAX
@@ -245,7 +246,10 @@ static void usage(const char *program) {
             "  %s get <site> " CHALK_DIM("[db_path]") "   Show saved credentials for a site\n"
             "  %s delete <site> " CHALK_DIM("[db_path]") " Delete a site entry (with confirmation)\n"
             "  %s list " CHALK_DIM("[db_path]") "         List all saved site names\n"
-            "  %s generate <length>            Generate a random password\n"
+            "  %s generate <length> " CHALK_DIM("[options]") "         Generate a random password\n"
+            "       " CHALK_DIM("--digits   ") "  Digits only (0-9)\n"
+            "       " CHALK_DIM("--alpha    ") "  Letters only (upper + lower)\n"
+            "       " CHALK_DIM("--lowercase") "  Lowercase letters only\n"
             "  %s change-master " CHALK_DIM("[db_path]") " Change master password\n"
             "  %s migrate " CHALK_DIM("[db_path]") "      Encrypt legacy/plain passwords\n"
             "  %s config get db                Show effective default DB path\n"
@@ -339,9 +343,13 @@ int main(int argc, char **argv) {
     if (strcmp(command, "generate") == 0) {
         char *endptr;
         long length;
-        const char *db_path;
+        const char *db_path = NULL;
+        unsigned int flags = 0;
+        int has_lowercase = 0;
+        int has_other = 0;
+        int i;
 
-        if (argc < 3 || argc > 4) {
+        if (argc < 3) {
             usage(argv[0]);
             return 1;
         }
@@ -352,8 +360,40 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        db_path = resolve_db_path((argc == 4) ? argv[3] : NULL, db_from_config, sizeof(db_from_config));
-        return cmd_generate(db_path, (int)length);
+        for (i = 3; i < argc; i++) {
+            if (strcmp(argv[i], "--digits") == 0) {
+                flags |= PW_FLAG_DIGIT;
+                has_other = 1;
+            } else if (strcmp(argv[i], "--alpha") == 0) {
+                flags |= PW_FLAG_UPPER | PW_FLAG_LOWER;
+                has_other = 1;
+            } else if (strcmp(argv[i], "--lowercase") == 0) {
+                flags |= PW_FLAG_LOWER;
+                has_lowercase = 1;
+            } else if (argv[i][0] == '-') {
+                fprintf(stderr, CHALK_RED("Unknown option: %s\n"), argv[i]);
+                fprintf(stderr, "Available options: --digits, --alpha, --lowercase\n");
+                return 1;
+            } else {
+                if (db_path != NULL) {
+                    usage(argv[0]);
+                    return 1;
+                }
+                db_path = argv[i];
+            }
+        }
+
+        /* --lowercase strips uppercase from whatever was selected */
+        if (has_lowercase) {
+            flags &= ~PW_FLAG_UPPER;
+        }
+
+        if (flags == 0) {
+            flags = PW_FLAG_ALL;
+        }
+
+        db_path = resolve_db_path(db_path, db_from_config, sizeof(db_from_config));
+        return cmd_generate(db_path, (int)length, flags);
     }
 
     if (strcmp(command, "change-master") == 0) {

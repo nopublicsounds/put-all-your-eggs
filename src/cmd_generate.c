@@ -9,7 +9,7 @@
 #include "auth.h"
 #include "crypto_utils.h"
 
-int cmd_generate(const char *db_path, int length) {
+int cmd_generate(const char *db_path, int length, unsigned int flags) {
 	char *password;
 	char answer[8];
 	char site[INPUT_SIZE];
@@ -23,8 +23,9 @@ int cmd_generate(const char *db_path, int length) {
 		"INSERT INTO entries (site, username, password) VALUES (?, ?, ?) "
 		"ON CONFLICT(site) DO UPDATE SET username = excluded.username, password = excluded.password;";
 
-	if (length < MIN_PASSWORD_LENGTH) {
-		fprintf(stderr, CHALK_RED("Length must be at least %d to include all character groups.\n"), MIN_PASSWORD_LENGTH);
+	/* minimum length = number of active groups (guaranteed by generate_password_ex) */
+	if (length <= 0) {
+		fprintf(stderr, CHALK_RED("Length must be a positive integer.\n"));
 		return 1;
 	}
 
@@ -34,8 +35,14 @@ int cmd_generate(const char *db_path, int length) {
 		return 1;
 	}
 
-	if (!generate_password(password, length)) {
-		fprintf(stderr, CHALK_RED("Failed to generate password.\n"));
+	if (!generate_password_ex(password, length, flags)) {
+		int n_groups = (int)((flags & PW_FLAG_LOWER) != 0) + (int)((flags & PW_FLAG_UPPER) != 0)
+		             + (int)((flags & PW_FLAG_DIGIT) != 0) + (int)((flags & PW_FLAG_SPECIAL) != 0);
+		if (n_groups == 0) {
+			fprintf(stderr, CHALK_RED("No character groups selected.\n"));
+		} else {
+			fprintf(stderr, CHALK_RED("Length must be at least %d for the selected character groups.\n"), n_groups);
+		}
 		free(password);
 		return 1;
 	}
