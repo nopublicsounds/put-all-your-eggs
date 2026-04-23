@@ -238,41 +238,53 @@ static int cmd_config(int argc, char **argv) {
 }
 
 static void usage(const char *program) {
-    fprintf(stderr,
-            CHALK_BOLD("Password Basket CLI\n")
-            "Usage:\n"
-            "  %s init " CHALK_DIM("[db_path]") "         Initialize vault and set master password\n"
-            "  %s add <site> " CHALK_DIM("[db_path]") "   Add credentials for a site\n"
-            "  %s get <site> " CHALK_DIM("[db_path]") "   Show saved credentials for a site\n"
-            "  %s delete <site> " CHALK_DIM("[db_path]") " Delete a site entry (with confirmation)\n"
-            "  %s list " CHALK_DIM("[db_path]") "         List all saved site names\n"
-            "  %s generate <length> " CHALK_DIM("[options]") "         Generate a random password\n"
-            "       " CHALK_DIM("--digits   ") "  Digits only (0-9)\n"
-            "       " CHALK_DIM("--alpha    ") "  Letters only (upper + lower)\n"
-            "       " CHALK_DIM("--special  ") "  Special characters only\n"
-            "       " CHALK_DIM("--lowercase") "  Lowercase letters only\n"
-            "  %s change-master " CHALK_DIM("[db_path]") " Change master password\n"
-            "  %s migrate " CHALK_DIM("[db_path]") "      Encrypt legacy/plain passwords\n"
-            "  %s config get db                Show effective default DB path\n"
-            "  %s config set db <path>         Set default DB path\n"
-            "\n"
-            "Notes:\n"
-            "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " CHALK_BOLD(ENV_DB_PATH) " > config > " CHALK_BOLD(DEFAULT_DB) "\n"
-            "  - Run " CHALK_BOLD("init") " first before using other commands.\n"
-            "\n"
-            "Examples:\n"
-            "  %s init\n"
-            "  %s add github\n"
-            "  %s get github\n"
-            "  %s delete github\n"
-            "  %s list\n"
-            "  %s generate 20\n"
-            "  %s change-master\n"
-            "  %s migrate\n"
-            "  %s config set db ~/vaults/work.db\n"
-            "  %s config get db\n",
-            program, program, program, program, program, program, program, program, program, program,
-            program, program, program, program, program, program, program, program, program, program);
+    char cmd[128];
+
+    fprintf(stderr, CHALK_BOLD("Password Basket CLI\n"));
+    fprintf(stderr, "Usage:\n");
+
+    snprintf(cmd, sizeof(cmd), "%s init [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Initialize vault and set master password");
+    snprintf(cmd, sizeof(cmd), "%s add <site> [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Add credentials for a site");
+    snprintf(cmd, sizeof(cmd), "%s get <site> [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Show saved credentials for a site");
+    snprintf(cmd, sizeof(cmd), "%s delete <site> [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Delete a site entry (with confirmation)");
+    snprintf(cmd, sizeof(cmd), "%s list [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "List all saved site names");
+    snprintf(cmd, sizeof(cmd), "%s generate <length> [options]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Generate a random password");
+    fprintf(stderr, "  %-38s %s\n", "  --digits", "Digits only (0-9)");
+    fprintf(stderr, "  %-38s %s\n", "  --alpha", "Letters only (upper + lower)");
+    fprintf(stderr, "  %-38s %s\n", "  --special", "Special characters only");
+    fprintf(stderr, "  %-38s %s\n", "  --lowercase", "Lowercase letters only");
+    snprintf(cmd, sizeof(cmd), "%s change-master [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Change master password");
+    snprintf(cmd, sizeof(cmd), "%s migrate [db_path]", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Encrypt legacy/plain passwords");
+    snprintf(cmd, sizeof(cmd), "%s config get db", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Show effective default DB path");
+    snprintf(cmd, sizeof(cmd), "%s config set db <path>", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Set default DB path");
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Notes:\n");
+    fprintf(stderr, "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " CHALK_BOLD(ENV_DB_PATH) " > config > " CHALK_BOLD(DEFAULT_DB) "\n");
+    fprintf(stderr, "  - Run " CHALK_BOLD("init") " first before using other commands.\n");
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Examples:\n");
+    fprintf(stderr, "  %s init\n", program);
+    fprintf(stderr, "  %s add github\n", program);
+    fprintf(stderr, "  %s get github\n", program);
+    fprintf(stderr, "  %s delete github\n", program);
+    fprintf(stderr, "  %s list\n", program);
+    fprintf(stderr, "  %s generate 20\n", program);
+    fprintf(stderr, "  %s change-master\n", program);
+    fprintf(stderr, "  %s migrate\n", program);
+    fprintf(stderr, "  %s config set db ~/vaults/work.db\n", program);
+    fprintf(stderr, "  %s config get db\n", program);
 }
 
 int main(int argc, char **argv) {
