@@ -112,6 +112,18 @@ EOF
 	assert_not_matches "$out" '.*[^A-Za-z0-9].*' "--digits: no special ($i)"
 done
 
+# --- --special: only special chars ---
+echo ''
+echo '-- --special --'
+for i in $(seq 5); do
+	out=$("$PWMGR" generate 20 --special 2>&1 <<'EOF'
+n
+EOF
+)
+	assert_matches     "$out" '[^A-Za-z0-9]+' "--special: only special ($i)"
+	assert_not_matches "$out" '.*[A-Za-z0-9].*' "--special: no alnum ($i)"
+done
+
 # --- combining: --alpha --digits => upper + lower + digit, no special ---
 echo ''
 echo '-- --alpha --digits (combined) --'
@@ -148,6 +160,19 @@ EOF
 	assert_matches     "$out" '[a-z0-9]+' "--lowercase --digits: only lower+digit ($i)"
 	assert_not_matches "$out" '.*[A-Z].*' "--lowercase --digits: no uppercase ($i)"
 	assert_not_matches "$out" '.*[^A-Za-z0-9].*' "--lowercase --digits: no special ($i)"
+done
+
+# --- combining: --lowercase --digits --special => lowercase + digits + special ---
+echo ''
+echo '-- --lowercase --digits --special (lowercase + digits + special) --'
+for i in $(seq 5); do
+	out=$("$PWMGR" generate 20 --lowercase --digits --special 2>&1 <<'EOF'
+n
+EOF
+)
+	assert_not_matches "$out" '.*[A-Z].*' "--lowercase --digits --special: no uppercase ($i)"
+	assert_matches     "$out" '.*[0-9].*' "--lowercase --digits --special: contains digit ($i)"
+	assert_matches     "$out" '.*[^A-Za-z0-9].*' "--lowercase --digits --special: contains special ($i)"
 done
 
 # --- minimum length ---

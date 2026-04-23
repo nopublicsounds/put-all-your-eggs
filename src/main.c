@@ -249,6 +249,7 @@ static void usage(const char *program) {
             "  %s generate <length> " CHALK_DIM("[options]") "         Generate a random password\n"
             "       " CHALK_DIM("--digits   ") "  Digits only (0-9)\n"
             "       " CHALK_DIM("--alpha    ") "  Letters only (upper + lower)\n"
+            "       " CHALK_DIM("--special  ") "  Special characters only\n"
             "       " CHALK_DIM("--lowercase") "  Lowercase letters only\n"
             "  %s change-master " CHALK_DIM("[db_path]") " Change master password\n"
             "  %s migrate " CHALK_DIM("[db_path]") "      Encrypt legacy/plain passwords\n"
@@ -346,7 +347,6 @@ int main(int argc, char **argv) {
         const char *db_path = NULL;
         unsigned int flags = 0;
         int has_lowercase = 0;
-        int has_other = 0;
         int i;
 
         if (argc < 3) {
@@ -363,16 +363,16 @@ int main(int argc, char **argv) {
         for (i = 3; i < argc; i++) {
             if (strcmp(argv[i], "--digits") == 0) {
                 flags |= PW_FLAG_DIGIT;
-                has_other = 1;
             } else if (strcmp(argv[i], "--alpha") == 0) {
                 flags |= PW_FLAG_UPPER | PW_FLAG_LOWER;
-                has_other = 1;
+            } else if (strcmp(argv[i], "--special") == 0) {
+                flags |= PW_FLAG_SPECIAL;
             } else if (strcmp(argv[i], "--lowercase") == 0) {
                 flags |= PW_FLAG_LOWER;
                 has_lowercase = 1;
             } else if (argv[i][0] == '-') {
                 fprintf(stderr, CHALK_RED("Unknown option: %s\n"), argv[i]);
-                fprintf(stderr, "Available options: --digits, --alpha, --lowercase\n");
+                fprintf(stderr, "Available options: --digits, --alpha, --special, --lowercase\n");
                 return 1;
             } else {
                 if (db_path != NULL) {
