@@ -53,9 +53,27 @@ int cmd_get(const char *db_path, const char *site) {
 			}
 		}
 
+		const char *username = (const char *)sqlite3_column_text(stmt, 0);
+
 		printf("Site     : %s\n", site);
-		printf("Username : %s\n", sqlite3_column_text(stmt, 0));
+		printf("Username : %s\n", username);
 		printf("Password : %s\n", decrypted_password);
+
+		if (prompt_yes_no("Copy username to clipboard? (y/N): ")) {
+			if (copy_to_clipboard(username)) {
+				printf(CHALK_GREEN("Username copied to clipboard.\n"));
+			} else {
+				fprintf(stderr, CHALK_YELLOW("Clipboard copy failed. Install xclip, xsel, or wl-copy.\n"));
+			}
+		}
+
+		if (prompt_yes_no("Copy password to clipboard? (y/N): ")) {
+			if (copy_to_clipboard(decrypted_password)) {
+				printf(CHALK_GREEN("Password copied to clipboard.\n"));
+			} else {
+				fprintf(stderr, CHALK_YELLOW("Clipboard copy failed. Install xclip, xsel, or wl-copy.\n"));
+			}
+		}
 	} else {
 		fprintf(stderr, CHALK_YELLOW("No entry found: %s\n"), site);
 		sqlite3_finalize(stmt);

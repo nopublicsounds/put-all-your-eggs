@@ -188,7 +188,7 @@ int entry_exists(sqlite3 *db, const char *site) {
 	return exists;
 }
 
-static int prompt_yes_no(const char *prompt) {
+int prompt_yes_no(const char *prompt) {
 	char response[16];
 
 	printf("%s", prompt);
@@ -203,6 +203,36 @@ static int prompt_yes_no(const char *prompt) {
 	}
 
 	return response[0] == 'y' || response[0] == 'Y';
+}
+
+static int clipboard_command(const char *cmd, const char *text) {
+	FILE *pipe = popen(cmd, "w");
+	if (pipe == NULL) {
+		return 0;
+	}
+
+	if (fputs(text, pipe) == EOF) {
+		pclose(pipe);
+		return 0;
+	}
+
+	return pclose(pipe) == 0;
+}
+
+int copy_to_clipboard(const char *text) {
+	static const char *commands[] = {
+		"xclip -selection clipboard",
+		"xsel --clipboard --input",
+		"wl-copy"
+	};
+
+	for (size_t index = 0; index < sizeof(commands) / sizeof(commands[0]); ++index) {
+		if (clipboard_command(commands[index], text)) {
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 int confirm_overwrite(const char *db_path, const char *site) {

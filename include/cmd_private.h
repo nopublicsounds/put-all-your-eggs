@@ -18,6 +18,8 @@
 int get_master_hash_key(sqlite3 *db, unsigned char key[MASTER_KEY_BYTES]);
 int entry_exists(sqlite3 *db, const char *site);
 int confirm_overwrite(const char *db_path, const char *site);
+int prompt_yes_no(const char *prompt);
+int copy_to_clipboard(const char *text);
 
 /* Password generation */
 int generate_password(char *password, int length);
