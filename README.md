@@ -26,7 +26,7 @@ Ubuntu/Debian:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential sqlite3 libsqlite3-dev libssl-dev
+sudo apt install -y build-essential sqlite3 libsqlite3-dev libssl-dev xclip
 ```
 
 ## Build & Install
