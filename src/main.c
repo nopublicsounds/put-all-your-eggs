@@ -186,6 +186,20 @@ static int write_config_db(const char *db_path) {
     return 1;
 }
 
+static int clear_config_db(void) {
+    char config_path[PATH_MAX];
+
+    if (!get_config_path(config_path, sizeof(config_path))) {
+        return 0;
+    }
+
+    if (unlink(config_path) == 0 || errno == ENOENT) {
+        return 1;
+    }
+
+    return 0;
+}
+
 static const char *resolve_db_path(const char *cli_db_path, char *buffer, size_t buffer_size) {
     const char *env_db_path;
 
@@ -229,11 +243,22 @@ static int cmd_config(int argc, char **argv) {
         return 0;
     }
 
+    if (argc == 4 && strcmp(argv[2], "unset") == 0 && strcmp(argv[3], "db") == 0) {
+        if (!clear_config_db()) {
+            fprintf(stderr, CHALK_RED("Failed to clear config.\n"));
+            return 1;
+        }
+
+        printf("Default DB config cleared.\n");
+        return 0;
+    }
+
     fprintf(stderr,
             "Usage:\n"
             "  %s config get db\n"
-            "  %s config set db <path>\n",
-            argv[0], argv[0]);
+            "  %s config set db <path>\n"
+            "  %s config unset db\n",
+            argv[0], argv[0], argv[0]);
     return 1;
 }
 
@@ -267,6 +292,8 @@ static void usage(const char *program) {
     fprintf(stderr, "  %-38s %s\n", cmd, "Show effective default DB path");
     snprintf(cmd, sizeof(cmd), "%s config set db <path>", program);
     fprintf(stderr, "  %-38s %s\n", cmd, "Set default DB path");
+    snprintf(cmd, sizeof(cmd), "%s config unset db", program);
+    fprintf(stderr, "  %-38s %s\n", cmd, "Clear saved default DB path");
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Notes:\n");
