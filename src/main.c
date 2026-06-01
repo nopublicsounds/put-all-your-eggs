@@ -240,7 +240,7 @@ static int cmd_config(int argc, char **argv) {
 static void usage(const char *program) {
     char cmd[128];
 
-    fprintf(stderr, CHALK_BOLD("Password Basket CLI\n"));
+    fprintf(stderr, "Password Basket CLI\n");
     fprintf(stderr, "Usage:\n");
 
     snprintf(cmd, sizeof(cmd), "%s init [db_path]", program);
@@ -270,8 +270,8 @@ static void usage(const char *program) {
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Notes:\n");
-    fprintf(stderr, "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " CHALK_BOLD(ENV_DB_PATH) " > config > " CHALK_BOLD(DEFAULT_DB) "\n");
-    fprintf(stderr, "  - Run " CHALK_BOLD("init") " first before using other commands.\n");
+    fprintf(stderr, "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " ENV_DB_PATH " > config > " DEFAULT_DB "\n");
+    fprintf(stderr, "  - Run " "init" " first before using other commands.\n");
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Examples:\n");
