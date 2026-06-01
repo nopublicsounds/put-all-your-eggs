@@ -72,6 +72,7 @@ DB path resolution priority is:
 | `pwmgr migrate [db_path]` | Migrate legacy/plain or old encrypted entries to `enc:v1` encrypted format. |
 | `pwmgr config get db` | Show effective default DB path after applying priority rules. |
 | `pwmgr config set db <path>` | Save default DB path (`~/.config/pwmgr/config` or `$XDG_CONFIG_HOME/pwmgr/config`). |
+| `pwmgr config unset db` | Remove saved default DB path from config file. |
 
 ## Security Model (Current)
 
