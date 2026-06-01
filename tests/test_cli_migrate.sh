@@ -6,6 +6,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 DB_DIR=$(mktemp -d)
 DB_PATH="$DB_DIR/vault.db"
 MASTER_PASSWORD='MasterPass!2026'
+export XDG_CONFIG_HOME="$DB_DIR/xdg-config"
 
 cleanup() {
 	rm -rf "$DB_DIR"

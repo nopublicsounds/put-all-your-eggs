@@ -4,6 +4,14 @@ set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 PWMGR="$ROOT_DIR/pwmgr"
+TMP_XDG=$(mktemp -d)
+export XDG_CONFIG_HOME="$TMP_XDG"
+
+cleanup() {
+	rm -rf "$TMP_XDG"
+}
+
+trap cleanup EXIT INT TERM
 
 PASS=0
 FAIL=0
