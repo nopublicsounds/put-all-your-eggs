@@ -14,9 +14,63 @@
 #define PATH_MAX 4096
 #endif
 
-#define DEFAULT_DB "vault.db"
+#define DEFAULT_DB_NAME "vault.db"
+#define DEFAULT_DB_DIR_SUFFIX ".local/share/pwmgr"
+#define DEFAULT_DB_FALLBACK_DIR "/tmp/pwmgr"
+#define DEFAULT_DB_FALLBACK "/tmp/pwmgr/vault.db"
 #define ENV_DB_PATH "PWMGR_DB_PATH"
 #define CONFIG_KEY_DB "default_db="
+
+static int ensure_dir(const char *path);
+
+static int ensure_default_db_dir(void) {
+    const char *home = getenv("HOME");
+    char local_dir[PATH_MAX];
+    char share_dir[PATH_MAX];
+    char pwmgr_dir[PATH_MAX];
+
+    if (home != NULL && home[0] != '\0') {
+        if (snprintf(local_dir, sizeof(local_dir), "%s/.local", home) >= (int)sizeof(local_dir)) {
+            return 0;
+        }
+        if (snprintf(share_dir, sizeof(share_dir), "%s/.local/share", home) >= (int)sizeof(share_dir)) {
+            return 0;
+        }
+        if (snprintf(pwmgr_dir, sizeof(pwmgr_dir), "%s/%s", home, DEFAULT_DB_DIR_SUFFIX) >= (int)sizeof(pwmgr_dir)) {
+            return 0;
+        }
+
+        if (!ensure_dir(local_dir)) {
+            return 0;
+        }
+        if (!ensure_dir(share_dir)) {
+            return 0;
+        }
+        if (!ensure_dir(pwmgr_dir)) {
+            return 0;
+        }
+        return 1;
+    }
+
+    return ensure_dir(DEFAULT_DB_FALLBACK_DIR);
+}
+
+static int build_default_db_path(char *output, size_t output_size) {
+    const char *home = getenv("HOME");
+
+    if (home != NULL && home[0] != '\0') {
+        if (snprintf(output, output_size, "%s/%s/%s", home, DEFAULT_DB_DIR_SUFFIX, DEFAULT_DB_NAME) >= (int)output_size) {
+            return 0;
+        }
+        return 1;
+    }
+
+    if (snprintf(output, output_size, "%s", DEFAULT_DB_FALLBACK) >= (int)output_size) {
+        return 0;
+    }
+
+    return 1;
+}
 
 static int make_absolute_path(const char *input, char *output, size_t output_size) {
     char cwd[PATH_MAX];
@@ -216,7 +270,15 @@ static const char *resolve_db_path(const char *cli_db_path, char *buffer, size_t
         return buffer;
     }
 
-    return DEFAULT_DB;
+    if (!ensure_default_db_dir()) {
+        return DEFAULT_DB_FALLBACK;
+    }
+
+    if (build_default_db_path(buffer, buffer_size)) {
+        return buffer;
+    }
+
+    return DEFAULT_DB_FALLBACK;
 }
 
 static int cmd_config(int argc, char **argv) {
@@ -297,7 +359,7 @@ static void usage(const char *program) {
 
     fprintf(stderr, "\n");
     fprintf(stderr, "Notes:\n");
-    fprintf(stderr, "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " ENV_DB_PATH " > config > " DEFAULT_DB "\n");
+    fprintf(stderr, "  - " CHALK_DIM("db_path") " is optional. Priority: CLI arg > " ENV_DB_PATH " > config > $HOME/" DEFAULT_DB_DIR_SUFFIX "/" DEFAULT_DB_NAME "\n");
     fprintf(stderr, "  - Run " "init" " first before using other commands.\n");
 
     fprintf(stderr, "\n");

@@ -56,7 +56,7 @@ DB path resolution priority is:
 1. Command argument (`[db_path]`)
 2. Environment variable `PWMGR_DB_PATH`
 3. Saved config value (`pwmgr config set db <path>`)
-4. Fallback `vault.db` in current directory
+4. Fallback `$HOME/.local/share/pwmgr/vault.db` (absolute path)
 
 ## Commands
 
