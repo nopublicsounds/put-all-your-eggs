@@ -72,12 +72,12 @@ assert_contains "$delete_output" 'Deleted entry: github' 'delete removes entry'
 list_after_delete=$("$ROOT_DIR/pwmgr" list "$DB_PATH")
 assert_contains "$list_after_delete" 'Total 0 entries' 'list shows zero entries after delete'
 
-generate_no_output=$(run_cli 'n\n' "$ROOT_DIR/pwmgr generate 16 '$DB_PATH'")
+generate_no_output=$(run_cli 'n\n' "$ROOT_DIR/pwmgr generate -d 4 -a 8 -s 4 '$DB_PATH'")
 assert_contains "$generate_no_output" 'Generated password:' 'generate prints password'
 list_after_no_save=$("$ROOT_DIR/pwmgr" list "$DB_PATH")
 assert_contains "$list_after_no_save" 'Total 0 entries' 'generate with n does not save entry'
 
-generate_yes_output=$(run_cli "y\ngensite\ngenuser\n" "$ROOT_DIR/pwmgr generate 16 '$DB_PATH'")
+generate_yes_output=$(run_cli "y\ngensite\ngenuser\n" "$ROOT_DIR/pwmgr generate -d 4 -a 8 -s 4 '$DB_PATH'")
 assert_contains "$generate_yes_output" 'Generated password:' 'generate yes prints password'
 assert_contains "$generate_yes_output" 'Saved: gensite' 'generate yes saves entry'
 
