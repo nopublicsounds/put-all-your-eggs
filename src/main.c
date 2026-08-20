@@ -340,12 +340,12 @@ static void usage(const char *program) {
     fprintf(stderr, "  %-38s %s\n", cmd, "Delete a site entry (with confirmation)");
     snprintf(cmd, sizeof(cmd), "%s list [db_path]", program);
     fprintf(stderr, "  %-38s %s\n", cmd, "List all saved site names");
-    snprintf(cmd, sizeof(cmd), "%s generate <length> [options]", program);
+    snprintf(cmd, sizeof(cmd), "%s generate [-d count] [-a count] [-s count] [-l]", program);
     fprintf(stderr, "  %-38s %s\n", cmd, "Generate a random password");
-    fprintf(stderr, "  %-38s %s\n", "  --digits", "Digits only (0-9)");
-    fprintf(stderr, "  %-38s %s\n", "  --alpha", "Letters only (upper + lower)");
-    fprintf(stderr, "  %-38s %s\n", "  --special", "Special characters only");
-    fprintf(stderr, "  %-38s %s\n", "  --lowercase", "Lowercase letters only");
+    fprintf(stderr, "  %-38s %s\n", "  -d <count>", "Number of digits");
+    fprintf(stderr, "  %-38s %s\n", "  -a <count>", "Number of alphabetic characters");
+    fprintf(stderr, "  %-38s %s\n", "  -s <count>", "Number of special characters");
+    fprintf(stderr, "  %-38s %s\n", "  -l", "Use lowercase alphabetic characters only");
     snprintf(cmd, sizeof(cmd), "%s change-master [db_path]", program);
     fprintf(stderr, "  %-38s %s\n", cmd, "Change master password");
     snprintf(cmd, sizeof(cmd), "%s migrate [db_path]", program);
@@ -369,7 +369,7 @@ static void usage(const char *program) {
     fprintf(stderr, "  %s get github\n", program);
     fprintf(stderr, "  %s delete github\n", program);
     fprintf(stderr, "  %s list\n", program);
-    fprintf(stderr, "  %s generate 20\n", program);
+    fprintf(stderr, "  %s generate -d 4 -a 12 -s 4\n", program);
     fprintf(stderr, "  %s change-master\n", program);
     fprintf(stderr, "  %s migrate\n", program);
     fprintf(stderr, "  %s config set db ~/vaults/work.db\n", program);
@@ -443,11 +443,11 @@ int main(int argc, char **argv) {
     }
 
     if (strcmp(command, "generate") == 0) {
-        char *endptr;
-        long length;
         const char *db_path = NULL;
-        unsigned int flags = 0;
-        int has_lowercase = 0;
+        int digit_count = 0;
+        int alphabet_count = 0;
+        int special_count = 0;
+        int lowercase = 0;
         int i;
 
         if (argc < 3) {
@@ -455,25 +455,23 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        length = strtol(argv[2], &endptr, 10);
-        if (*argv[2] == '\0' || *endptr != '\0' || length <= 0 || length > 1024) {
-            fprintf(stderr, CHALK_RED("Length must be an integer between 1 and 1024.\n"));
-            return 1;
-        }
+        for (i = 2; i < argc; i++) {
+            char *endptr;
+            long count;
+            int *target = NULL;
 
-        for (i = 3; i < argc; i++) {
-            if (strcmp(argv[i], "--digits") == 0) {
-                flags |= PW_FLAG_DIGIT;
-            } else if (strcmp(argv[i], "--alpha") == 0) {
-                flags |= PW_FLAG_UPPER | PW_FLAG_LOWER;
-            } else if (strcmp(argv[i], "--special") == 0) {
-                flags |= PW_FLAG_SPECIAL;
-            } else if (strcmp(argv[i], "--lowercase") == 0) {
-                flags |= PW_FLAG_LOWER;
-                has_lowercase = 1;
+            if (strcmp(argv[i], "-l") == 0) {
+                lowercase = 1;
+				continue;
+            } else if (strcmp(argv[i], "-d") == 0) {
+                target = &digit_count;
+            } else if (strcmp(argv[i], "-a") == 0) {
+                target = &alphabet_count;
+            } else if (strcmp(argv[i], "-s") == 0) {
+                target = &special_count;
             } else if (argv[i][0] == '-') {
                 fprintf(stderr, CHALK_RED("Unknown option: %s\n"), argv[i]);
-                fprintf(stderr, "Available options: --digits, --alpha, --special, --lowercase\n");
+                fprintf(stderr, "Available options: -d <count>, -a <count>, -s <count>, -l\n");
                 return 1;
             } else {
                 if (db_path != NULL) {
@@ -481,20 +479,28 @@ int main(int argc, char **argv) {
                     return 1;
                 }
                 db_path = argv[i];
+                continue;
             }
+
+            if (i + 1 >= argc) {
+                fprintf(stderr, CHALK_RED("Option %s requires a count.\n"), argv[i]);
+                return 1;
+            }
+            count = strtol(argv[++i], &endptr, 10);
+            if (*argv[i] == '\0' || *endptr != '\0' || count < 0 || count > 1024) {
+                fprintf(stderr, CHALK_RED("Count must be an integer between 0 and 1024.\n"));
+                return 1;
+            }
+            *target = (int)count;
         }
 
-        /* --lowercase strips uppercase from whatever was selected */
-        if (has_lowercase) {
-            flags &= ~PW_FLAG_UPPER;
-        }
-
-        if (flags == 0) {
-            flags = PW_FLAG_ALL;
+        if (digit_count + alphabet_count + special_count > 1024) {
+            fprintf(stderr, CHALK_RED("Total character count must not exceed 1024.\n"));
+            return 1;
         }
 
         db_path = resolve_db_path(db_path, db_from_config, sizeof(db_from_config));
-        return cmd_generate(db_path, (int)length, flags);
+        return cmd_generate(db_path, digit_count, alphabet_count, special_count, lowercase);
     }
 
     if (strcmp(command, "change-master") == 0) {

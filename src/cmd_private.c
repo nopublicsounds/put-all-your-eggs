@@ -170,6 +170,31 @@ int generate_password_ex(char *password, int length, unsigned int flags) {
 	return 1;
 }
 
+int generate_password_counts(char *password, int digit_count, int alphabet_count, int special_count, int lowercase) {
+	char alphabet_chars[sizeof(LOWER_CHARS) + sizeof(UPPER_CHARS) - 1];
+	int length = digit_count + alphabet_count + special_count;
+	int pos = 0;
+
+	if (digit_count < 0 || alphabet_count < 0 || special_count < 0 || length <= 0) {
+		return 0;
+	}
+
+	if (lowercase) {
+		memcpy(alphabet_chars, LOWER_CHARS, sizeof(LOWER_CHARS));
+	} else {
+		snprintf(alphabet_chars, sizeof(alphabet_chars), "%s%s", LOWER_CHARS, UPPER_CHARS);
+	}
+
+	if (!fill_password_group(password, pos, digit_count, DIGIT_CHARS)) return 0;
+	pos += digit_count;
+	if (!fill_password_group(password, pos, alphabet_count, alphabet_chars)) return 0;
+	pos += alphabet_count;
+	if (!fill_password_group(password, pos, special_count, SPECIAL_CHARS)) return 0;
+	password[length] = '\0';
+	shuffle_password(password, length);
+	return 1;
+}
+
 int entry_exists(sqlite3 *db, const char *site) {
 	sqlite3_stmt *stmt;
 	const char *sql = "SELECT 1 FROM entries WHERE site = ? LIMIT 1;";

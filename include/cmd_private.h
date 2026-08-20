@@ -24,5 +24,6 @@ int copy_to_clipboard(const char *text);
 /* Password generation */
 int generate_password(char *password, int length);
 int generate_password_ex(char *password, int length, unsigned int flags);
+int generate_password_counts(char *password, int digit_count, int alphabet_count, int special_count, int lowercase);
 
 #endif
