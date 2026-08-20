@@ -67,7 +67,7 @@ DB path resolution priority is:
 | `pwmgr get <site> [db_path]` | Show credentials for site (requires master password). |
 | `pwmgr delete <site> [db_path]` | Delete a site entry with confirmation (requires master password). |
 | `pwmgr list [db_path]` | List all saved sites. |
-| `pwmgr generate <length> [options] [db_path]` | Generate random password with optional charset flags (`--digits`, `--alpha`, `--special`, `--lowercase`). |
+| `pwmgr generate [-d count] [-a count] [-s count] [-l] [db_path]` | Generate a password with exact character-group counts. |
 | `pwmgr change-master [db_path]` | Change master password (requires current master password). |
 | `pwmgr migrate [db_path]` | Migrate legacy/plain or old encrypted entries to `enc:v1` encrypted format. |
 | `pwmgr config get db` | Show effective default DB path after applying priority rules. |
@@ -107,31 +107,17 @@ Behavior:
 ## Password Generator
 
 ```bash
-pwmgr generate 20
-pwmgr generate 20 --digits
-pwmgr generate 20 --alpha
-pwmgr generate 20 --special
-pwmgr generate 20 --lowercase
-pwmgr generate 20 --alpha --digits
-pwmgr generate 20 --alpha --lowercase
-pwmgr generate 20 --lowercase --digits --special
+pwmgr generate -d 4 -a 12 -s 4
+pwmgr generate -a 16 -l
+pwmgr generate -d 8
+pwmgr generate -s 4
 ```
 
-- Default (no flags): uses uppercase/lowercase/digits/specials.
-- `--digits`: digits only (`0-9`).
-- `--alpha`: letters only (uppercase + lowercase).
-- `--special`: special characters only.
-- `--lowercase`: removes uppercase from selected groups.
-	- `--lowercase` -> lowercase only
-	- `--alpha --lowercase` -> lowercase only
-	- `--digits --lowercase` -> lowercase + digits
-	- `--digits --special --lowercase` -> lowercase + digits + specials
-- Minimum length depends on selected groups (at least one char per group):
-	- default: `4`
-	- `--alpha`: `2`
-	- `--digits`: `1`
-	- `--special`: `1`
-	- `--lowercase`: `1`
+- `-d <count>`: exact number of digits (`0-9`).
+- `-a <count>`: exact number of alphabetic characters (uppercase and lowercase).
+- `-s <count>`: exact number of special characters.
+- `-l`: use lowercase letters only for characters requested with `-a`.
+- The generated password length is the sum of the requested counts and must be between `1` and `1024`.
 
 ## Notes
 
